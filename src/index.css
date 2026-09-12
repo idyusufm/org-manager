@@ -59,83 +59,108 @@ a {
 }
 
 .app-shell {
-  display: flex;
   min-height: 100vh;
-}
-
-.sidebar {
-  width: 220px;
-  flex-shrink: 0;
-  background: var(--ink);
-  color: #e9e7dd;
-  padding: 28px 18px;
   display: flex;
   flex-direction: column;
-  gap: 32px;
 }
 
-.sidebar-brand {
-  font-family: var(--font-display);
-  font-size: 20px;
+/* Fixed top bar: brand + sign out */
+.top-bar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 56px;
+  background: var(--ink);
   color: #f7f6f0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 16px;
+  z-index: 20;
 }
 
-.sidebar-brand span {
-  display: block;
-  font-family: var(--font-body);
+.top-bar-brand {
+  font-family: var(--font-display);
+  font-size: 18px;
+}
+
+.top-bar-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.top-bar-user span {
   font-size: 12px;
   color: #9fb0a4;
-  margin-top: 2px;
+  max-width: 120px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
-.sidebar-nav {
+.top-bar-user button {
+  background: none;
+  border: 1px solid #3d5647;
+  color: #e9e7dd;
+  cursor: pointer;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: 3px;
+}
+
+.top-bar-user button:hover {
+  border-color: var(--brass-light);
+  color: var(--brass-light);
+}
+
+/* Fixed bottom nav: 3 tabs */
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background: var(--ink);
+  display: flex;
+  z-index: 20;
+  border-top: 1px solid var(--ink-light);
+}
+
+.bottom-nav a {
+  flex: 1;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-}
-
-.sidebar-nav a {
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
   text-decoration: none;
-  padding: 10px 12px;
-  border-radius: 4px;
-  color: #cfd6cc;
-  font-size: 14px;
-  border-left: 2px solid transparent;
-  transition: background 0.15s ease, color 0.15s ease;
-}
-
-.sidebar-nav a:hover {
-  background: var(--ink-light);
-  color: #fff;
-}
-
-.sidebar-nav a.active {
-  background: var(--ink-light);
-  color: #fff;
-  border-left: 2px solid var(--brass-light);
-}
-
-.sidebar-footer {
-  margin-top: auto;
-  font-size: 13px;
   color: #9fb0a4;
+  font-size: 12px;
 }
 
-.sidebar-footer button {
-  background: none;
-  border: none;
-  color: #cfd6cc;
-  cursor: pointer;
-  font-size: 13px;
-  padding: 0;
-  text-decoration: underline;
-  text-underline-offset: 3px;
+.bottom-nav a .icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.bottom-nav a.active {
+  color: var(--brass-light);
 }
 
 .main {
   flex: 1;
-  padding: 40px 48px;
+  padding: 76px 20px 84px;
   max-width: 980px;
+  width: 100%;
+  margin: 0 auto;
+}
+
+@media (min-width: 720px) {
+  .main {
+    padding: 88px 48px 40px;
+  }
 }
 
 .page-header {
