@@ -74,24 +74,24 @@ a {
   color: #fff;
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0 18px;
+  gap: 4px;
+  padding: 0 8px 0 4px;
   z-index: 20;
+}
+
+.hamburger-btn {
+  background: none;
+  border: none;
+  color: #fff;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 8px 10px;
+  line-height: 1;
 }
 
 .top-bar-brand {
   font-size: 19px;
   font-weight: 700;
-}
-
-.top-bar-user button {
-  background: var(--red);
-  color: #fff;
-  border: none;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 9px 16px;
-  border-radius: 6px;
 }
 
 .bottom-nav {
