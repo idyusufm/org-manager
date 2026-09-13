@@ -1,18 +1,23 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { NavLink } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
+import SideMenu from './SideMenu'
 
 export default function Layout({ children }) {
-  const { logout } = useAuth()
+  const { user } = useAuth()
+  const [menuOpen, setMenuOpen] = useState(false)
+  const username = user?.email ? user.email.split('@')[0] : ''
 
   return (
     <div className="app-shell">
       <header className="top-bar">
-        <div className="top-bar-brand">Si Maqom - Dasbor</div>
-        <div className="top-bar-user">
-          <button onClick={logout}>Keluar</button>
-        </div>
+        <button className="hamburger-btn" onClick={() => setMenuOpen(true)} aria-label="Buka menu">
+          ☰
+        </button>
+        <div className="top-bar-brand">Si Maqom - {username}</div>
       </header>
+
+      <SideMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
 
       <main className="main">{children}</main>
 
