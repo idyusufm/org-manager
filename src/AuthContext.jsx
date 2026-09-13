@@ -22,7 +22,7 @@ export function AuthProvider({ children }) {
         const email = (u.email || '').toLowerCase()
         const snap = await getDoc(doc(db, 'allowedEmails', email))
         if (snap.exists()) {
-          setUser(u)
+          setUser({ ...u })
         } else {
           setCheckError("This account isn't approved yet. Ask an admin to add your email, then sign in again.")
           await signOut(auth)
@@ -41,8 +41,16 @@ export function AuthProvider({ children }) {
 
   const logout = () => signOut(auth)
 
+  // Firebase Auth's profile (like displayName) doesn't trigger onAuthStateChanged
+  // when it changes, so components call this after updateProfile() to refresh.
+  const refreshUser = async () => {
+    if (!auth.currentUser) return
+    await auth.currentUser.reload()
+    setUser({ ...auth.currentUser })
+  }
+
   return (
-    <AuthContext.Provider value={{ user, loading, logout, checkError }}>
+    <AuthContext.Provider value={{ user, loading, logout, checkError, refreshUser }}>
       {children}
     </AuthContext.Provider>
   )
