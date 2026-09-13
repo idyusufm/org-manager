@@ -24,6 +24,7 @@ const emptyForm = { title: '', category: 'Harian', pj: '', date: '' }
 export default function Agenda() {
   const { user } = useAuth()
   const [events, setEvents] = useState([])
+  const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
@@ -35,6 +36,14 @@ export default function Agenda() {
     const unsub = onSnapshot(q, (snap) => {
       setEvents(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
       setLoading(false)
+    })
+    return unsub
+  }, [])
+
+  useEffect(() => {
+    const mq = query(collection(db, 'members'), orderBy('name', 'asc'))
+    const unsub = onSnapshot(mq, (snap) => {
+      setMembers(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     })
     return unsub
   }, [])
@@ -66,6 +75,18 @@ export default function Agenda() {
     await deleteDoc(doc(db, 'events', id))
   }
 
+  const PjSelect = ({ value, onChange }) => (
+    <select value={value} onChange={onChange}>
+      <option value="">Pilih pengurus…</option>
+      {members.map((m) => (
+        <option key={m.id} value={m.name}>{m.name}</option>
+      ))}
+      {value && !members.some((m) => m.name === value) && (
+        <option value={value}>{value} (tidak terdaftar)</option>
+      )}
+    </select>
+  )
+
   return (
     <>
       <div className="section-row">
@@ -77,6 +98,11 @@ export default function Agenda() {
 
       {showForm && (
         <div className="card">
+          {members.length === 0 && (
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10 }}>
+              Belum ada pengurus terdaftar. Tambahkan dulu di halaman Pengurus agar bisa dipilih di sini.
+            </p>
+          )}
           <form onSubmit={handleSubmit}>
             <div className="form-grid">
               <div>
@@ -97,11 +123,7 @@ export default function Agenda() {
               </div>
               <div>
                 <label>Penanggung Jawab</label>
-                <input
-                  value={form.pj}
-                  onChange={(e) => setForm({ ...form, pj: e.target.value })}
-                  placeholder="cth. Pak Jaja"
-                />
+                <PjSelect value={form.pj} onChange={(e) => setForm({ ...form, pj: e.target.value })} />
               </div>
               <div>
                 <label>Tanggal</label>
@@ -143,10 +165,7 @@ export default function Agenda() {
                 </div>
                 <div>
                   <label>Penanggung Jawab</label>
-                  <input
-                    value={editForm.pj}
-                    onChange={(e) => setEditForm({ ...editForm, pj: e.target.value })}
-                  />
+                  <PjSelect value={editForm.pj} onChange={(e) => setEditForm({ ...editForm, pj: e.target.value })} />
                 </div>
                 <div>
                   <label>Tanggal</label>
