@@ -7,6 +7,7 @@ import {
   query,
   doc,
   updateDoc,
+  deleteDoc,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../firebase'
@@ -20,14 +21,18 @@ function PersonIcon() {
   )
 }
 
+const emptyMember = { name: '', role: '', phone: '' }
+
 export default function Org() {
   const [members, setMembers] = useState([])
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
   const [showMemberForm, setShowMemberForm] = useState(false)
   const [showTaskForm, setShowTaskForm] = useState(false)
-  const [memberForm, setMemberForm] = useState({ name: '', role: '', phone: '' })
+  const [memberForm, setMemberForm] = useState(emptyMember)
   const [taskForm, setTaskForm] = useState({ title: '', owner: '' })
+  const [editingMemberId, setEditingMemberId] = useState(null)
+  const [editMemberForm, setEditMemberForm] = useState(emptyMember)
 
   useEffect(() => {
     const mq = query(collection(db, 'members'), orderBy('name', 'asc'))
@@ -49,8 +54,23 @@ export default function Org() {
     e.preventDefault()
     if (!memberForm.name) return
     await addDoc(collection(db, 'members'), { ...memberForm })
-    setMemberForm({ name: '', role: '', phone: '' })
+    setMemberForm(emptyMember)
     setShowMemberForm(false)
+  }
+
+  const startEditMember = (m) => {
+    setEditingMemberId(m.id)
+    setEditMemberForm({ name: m.name, role: m.role || '', phone: m.phone || '' })
+  }
+
+  const saveMemberEdit = async (id) => {
+    await updateDoc(doc(db, 'members', id), { ...editMemberForm })
+    setEditingMemberId(null)
+  }
+
+  const removeMember = async (id) => {
+    if (!window.confirm('Hapus pengurus ini?')) return
+    await deleteDoc(doc(db, 'members', id))
   }
 
   const addTask = async (e) => {
@@ -67,6 +87,11 @@ export default function Org() {
 
   const toggleTask = async (task) => {
     await updateDoc(doc(db, 'tasks', task.id), { done: !task.done })
+  }
+
+  const removeTask = async (id) => {
+    if (!window.confirm('Hapus tugas ini?')) return
+    await deleteDoc(doc(db, 'tasks', id))
   }
 
   return (
@@ -113,20 +138,58 @@ export default function Org() {
       ) : members.length === 0 ? (
         <p className="empty-state">Belum ada pengurus.</p>
       ) : (
-        members.map((m) => (
-          <div key={m.id} className="member-card">
-            <div className="avatar-circle">
-              <PersonIcon />
-            </div>
-            <div>
-              <div className="list-card-title">{m.name}</div>
-              <div className="list-card-sub">
-                {m.role || 'Anggota'}
-                {m.phone ? ` (${m.phone})` : ''}
+        members.map((m) =>
+          editingMemberId === m.id ? (
+            <div key={m.id} className="card">
+              <div className="form-grid">
+                <div>
+                  <label>Nama</label>
+                  <input
+                    value={editMemberForm.name}
+                    onChange={(e) => setEditMemberForm({ ...editMemberForm, name: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label>Jabatan</label>
+                  <input
+                    value={editMemberForm.role}
+                    onChange={(e) => setEditMemberForm({ ...editMemberForm, role: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label>No. HP</label>
+                  <input
+                    value={editMemberForm.phone}
+                    onChange={(e) => setEditMemberForm({ ...editMemberForm, phone: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn" onClick={() => saveMemberEdit(m.id)}>Simpan</button>
+                <button className="btn-accent" style={{ background: '#9aa0a6' }} onClick={() => setEditingMemberId(null)}>
+                  Batal
+                </button>
               </div>
             </div>
-          </div>
-        ))
+          ) : (
+            <div key={m.id} className="member-card">
+              <div className="avatar-circle">
+                <PersonIcon />
+              </div>
+              <div style={{ flex: 1 }}>
+                <div className="list-card-title">{m.name}</div>
+                <div className="list-card-sub">
+                  {m.role || 'Anggota'}
+                  {m.phone ? ` (${m.phone})` : ''}
+                </div>
+              </div>
+              <div className="list-card-actions">
+                <button className="icon-btn" onClick={() => startEditMember(m)} aria-label="Edit">✏️</button>
+                <button className="icon-btn" onClick={() => removeMember(m.id)} aria-label="Hapus">🗑️</button>
+              </div>
+            </div>
+          )
+        )
       )}
 
       <div className="section-row" style={{ marginTop: 28 }}>
@@ -165,7 +228,10 @@ export default function Org() {
                 {t.title}
               </span>
             </div>
-            <div className="list-card-sub">{t.owner}</div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+              <div className="list-card-sub">{t.owner}</div>
+              <button className="icon-btn" onClick={() => removeTask(t.id)} aria-label="Hapus">🗑️</button>
+            </div>
           </div>
         ))
       )}
