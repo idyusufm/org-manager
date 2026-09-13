@@ -548,3 +548,14 @@ label {
   gap: 6px;
   flex-shrink: 0;
 }
+
+.avatar-btn {
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
