@@ -11,11 +11,22 @@ import {
 } from 'firebase/firestore'
 import { db } from '../firebase'
 
+function PersonIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="8" r="4" fill="currentColor" />
+      <path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7" fill="currentColor" />
+    </svg>
+  )
+}
+
 export default function Org() {
   const [members, setMembers] = useState([])
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
-  const [memberForm, setMemberForm] = useState({ name: '', role: '', email: '' })
+  const [showMemberForm, setShowMemberForm] = useState(false)
+  const [showTaskForm, setShowTaskForm] = useState(false)
+  const [memberForm, setMemberForm] = useState({ name: '', role: '', phone: '' })
   const [taskForm, setTaskForm] = useState({ title: '', owner: '' })
 
   useEffect(() => {
@@ -37,8 +48,9 @@ export default function Org() {
   const addMember = async (e) => {
     e.preventDefault()
     if (!memberForm.name) return
-    await addDoc(collection(db, 'members'), { ...memberForm, status: 'active' })
-    setMemberForm({ name: '', role: '', email: '' })
+    await addDoc(collection(db, 'members'), { ...memberForm })
+    setMemberForm({ name: '', role: '', phone: '' })
+    setShowMemberForm(false)
   }
 
   const addTask = async (e) => {
@@ -50,6 +62,7 @@ export default function Org() {
       createdAt: serverTimestamp(),
     })
     setTaskForm({ title: '', owner: '' })
+    setShowTaskForm(false)
   }
 
   const toggleTask = async (task) => {
@@ -58,109 +71,104 @@ export default function Org() {
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h1>Organization</h1>
-          <p>Members and open tasks.</p>
+      <div className="section-row">
+        <h2>Struktur Organisasi</h2>
+        <button className="btn-accent" onClick={() => setShowMemberForm((s) => !s)}>
+          {showMemberForm ? 'Tutup' : '+ Tambah'}
+        </button>
+      </div>
+
+      {showMemberForm && (
+        <div className="card">
+          <form onSubmit={addMember}>
+            <div className="form-grid">
+              <div>
+                <label>Nama</label>
+                <input value={memberForm.name} onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })} />
+              </div>
+              <div>
+                <label>Jabatan</label>
+                <input
+                  value={memberForm.role}
+                  onChange={(e) => setMemberForm({ ...memberForm, role: e.target.value })}
+                  placeholder="cth. Ketua Pengelola"
+                />
+              </div>
+              <div>
+                <label>No. HP</label>
+                <input
+                  value={memberForm.phone}
+                  onChange={(e) => setMemberForm({ ...memberForm, phone: e.target.value })}
+                  placeholder="cth. 0812-3456-7890"
+                />
+              </div>
+            </div>
+            <button className="btn" type="submit">Simpan Pengurus</button>
+          </form>
         </div>
-      </div>
+      )}
 
-      <div className="card">
-        <h3 style={{ marginBottom: 14, fontSize: 16 }}>Add member</h3>
-        <form onSubmit={addMember}>
-          <div className="form-grid">
-            <div>
-              <label>Name</label>
-              <input value={memberForm.name} onChange={(e) => setMemberForm({ ...memberForm, name: e.target.value })} />
+      {loading ? (
+        <p className="empty-state">Memuat…</p>
+      ) : members.length === 0 ? (
+        <p className="empty-state">Belum ada pengurus.</p>
+      ) : (
+        members.map((m) => (
+          <div key={m.id} className="member-card">
+            <div className="avatar-circle">
+              <PersonIcon />
             </div>
             <div>
-              <label>Role</label>
-              <input
-                value={memberForm.role}
-                onChange={(e) => setMemberForm({ ...memberForm, role: e.target.value })}
-                placeholder="e.g. Treasurer"
-              />
-            </div>
-            <div>
-              <label>Email</label>
-              <input
-                type="email"
-                value={memberForm.email}
-                onChange={(e) => setMemberForm({ ...memberForm, email: e.target.value })}
-              />
+              <div className="list-card-title">{m.name}</div>
+              <div className="list-card-sub">
+                {m.role || 'Anggota'}
+                {m.phone ? ` (${m.phone})` : ''}
+              </div>
             </div>
           </div>
-          <button className="btn" type="submit">Add member</button>
-        </form>
+        ))
+      )}
+
+      <div className="section-row" style={{ marginTop: 28 }}>
+        <h2>Tugas</h2>
+        <button className="btn-accent" onClick={() => setShowTaskForm((s) => !s)}>
+          {showTaskForm ? 'Tutup' : '+ Tambah'}
+        </button>
       </div>
 
-      <div className="card">
-        <h3 style={{ marginBottom: 14, fontSize: 16 }}>Members ({members.length})</h3>
-        {loading ? (
-          <p className="empty-state">Loading…</p>
-        ) : members.length === 0 ? (
-          <p className="empty-state">No members yet.</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Role</th>
-                <th>Email</th>
-              </tr>
-            </thead>
-            <tbody>
-              {members.map((m) => (
-                <tr key={m.id}>
-                  <td>{m.name}</td>
-                  <td><span className="tag">{m.role || 'Member'}</span></td>
-                  <td style={{ color: 'var(--text-muted)' }}>{m.email}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {showTaskForm && (
+        <div className="card">
+          <form onSubmit={addTask}>
+            <div className="form-grid">
+              <div>
+                <label>Judul Tugas</label>
+                <input value={taskForm.title} onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })} />
+              </div>
+              <div>
+                <label>Penanggung Jawab</label>
+                <input value={taskForm.owner} onChange={(e) => setTaskForm({ ...taskForm, owner: e.target.value })} />
+              </div>
+            </div>
+            <button className="btn" type="submit">Simpan Tugas</button>
+          </form>
+        </div>
+      )}
 
-      <div className="card">
-        <h3 style={{ marginBottom: 14, fontSize: 16 }}>Add task</h3>
-        <form onSubmit={addTask}>
-          <div className="form-grid">
-            <div>
-              <label>Task</label>
-              <input value={taskForm.title} onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })} />
+      {tasks.length === 0 ? (
+        <p className="empty-state">Belum ada tugas.</p>
+      ) : (
+        tasks.map((t) => (
+          <div key={t.id} className="list-card" style={{ borderLeftColor: t.done ? 'var(--green)' : 'var(--tag-gray)' }}>
+            <div className="checkbox-row">
+              <input type="checkbox" checked={!!t.done} onChange={() => toggleTask(t)} />
+              <span style={{ textDecoration: t.done ? 'line-through' : 'none', color: t.done ? 'var(--text-muted)' : 'var(--text)' }}>
+                {t.title}
+              </span>
             </div>
-            <div>
-              <label>Owner</label>
-              <input value={taskForm.owner} onChange={(e) => setTaskForm({ ...taskForm, owner: e.target.value })} />
-            </div>
+            <div className="list-card-sub">{t.owner}</div>
           </div>
-          <button className="btn" type="submit">Add task</button>
-        </form>
-      </div>
-
-      <div className="card">
-        <h3 style={{ marginBottom: 14, fontSize: 16 }}>Tasks</h3>
-        {tasks.length === 0 ? (
-          <p className="empty-state">No tasks yet.</p>
-        ) : (
-          <table>
-            <tbody>
-              {tasks.map((t) => (
-                <tr key={t.id}>
-                  <td style={{ width: 24 }}>
-                    <input type="checkbox" checked={!!t.done} onChange={() => toggleTask(t)} />
-                  </td>
-                  <td style={{ textDecoration: t.done ? 'line-through' : 'none', color: t.done ? 'var(--text-muted)' : 'var(--text)' }}>
-                    {t.title}
-                  </td>
-                  <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{t.owner}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+        ))
+      )}
     </>
   )
 }
