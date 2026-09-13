@@ -6,7 +6,7 @@ import SideMenu from './SideMenu'
 export default function Layout({ children }) {
   const { user } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
-  const username = user?.email ? user.email.split('@')[0] : ''
+  const displayName = user?.displayName || (user?.email ? user.email.split('@')[0] : '')
 
   return (
     <div className="app-shell">
@@ -14,7 +14,7 @@ export default function Layout({ children }) {
         <button className="hamburger-btn" onClick={() => setMenuOpen(true)} aria-label="Buka menu">
           ☰
         </button>
-        <div className="top-bar-brand">Si Maqom - {username}</div>
+        <div className="top-bar-brand">Si Maqom - {displayName}</div>
       </header>
 
       <SideMenu open={menuOpen} onClose={() => setMenuOpen(false)} />
