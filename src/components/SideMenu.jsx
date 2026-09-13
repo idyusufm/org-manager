@@ -24,7 +24,12 @@ export default function SideMenu({ open, onClose }) {
           <div className="avatar-circle">
             <PersonIcon />
           </div>
-          <div className="drawer-email">{user?.email}</div>
+          <div>
+            {user?.displayName && (
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{user.displayName}</div>
+            )}
+            <div className="drawer-email">{user?.email}</div>
+          </div>
         </div>
 
         <nav className="drawer-nav">
