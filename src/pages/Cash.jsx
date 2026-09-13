@@ -5,6 +5,9 @@ import {
   onSnapshot,
   orderBy,
   query,
+  doc,
+  updateDoc,
+  deleteDoc,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../firebase'
@@ -15,12 +18,16 @@ const rupiah = (n) => {
   return `${sign} Rp ${Math.abs(n).toLocaleString('id-ID')}`
 }
 
+const emptyForm = { description: '', amount: '', type: 'income', date: '' }
+
 export default function Cash() {
   const { user } = useAuth()
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
   const [showForm, setShowForm] = useState(false)
-  const [form, setForm] = useState({ description: '', amount: '', type: 'income', date: '' })
+  const [form, setForm] = useState(emptyForm)
+  const [editingId, setEditingId] = useState(null)
+  const [editForm, setEditForm] = useState(emptyForm)
 
   useEffect(() => {
     const q = query(collection(db, 'transactions'), orderBy('date', 'desc'))
@@ -43,8 +50,34 @@ export default function Cash() {
       createdBy: user?.email || 'unknown',
       createdAt: serverTimestamp(),
     })
-    setForm({ description: '', amount: '', type: 'income', date: '' })
+    setForm(emptyForm)
     setShowForm(false)
+  }
+
+  const startEdit = (t) => {
+    setEditingId(t.id)
+    setEditForm({
+      description: t.description,
+      amount: String(Math.abs(t.amount)),
+      type: t.amount < 0 ? 'expense' : 'income',
+      date: t.date,
+    })
+  }
+
+  const saveEdit = async (id) => {
+    const signedAmount =
+      editForm.type === 'expense' ? -Math.abs(Number(editForm.amount)) : Math.abs(Number(editForm.amount))
+    await updateDoc(doc(db, 'transactions', id), {
+      description: editForm.description,
+      amount: signedAmount,
+      date: editForm.date,
+    })
+    setEditingId(null)
+  }
+
+  const removeTransaction = async (id) => {
+    if (!window.confirm('Hapus transaksi ini? Saldo akan dihitung ulang otomatis.')) return
+    await deleteDoc(doc(db, 'transactions', id))
   }
 
   const balance = transactions.reduce((sum, t) => sum + t.amount, 0)
@@ -112,19 +145,68 @@ export default function Cash() {
       ) : transactions.length === 0 ? (
         <p className="empty-state">Belum ada transaksi. Tambahkan yang pertama.</p>
       ) : (
-        transactions.map((t) => (
-          <div key={t.id} className={`list-card ${t.amount >= 0 ? 'positive' : 'negative'}`}>
-            <div className="list-card-main">
-              <div className="list-card-title">{t.description}</div>
-              <div className="list-card-sub">
-                {new Date(t.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+        transactions.map((t) =>
+          editingId === t.id ? (
+            <div key={t.id} className="card">
+              <div className="form-grid">
+                <div>
+                  <label>Deskripsi</label>
+                  <input
+                    value={editForm.description}
+                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label>Jenis</label>
+                  <select value={editForm.type} onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}>
+                    <option value="income">Pemasukan</option>
+                    <option value="expense">Pengeluaran</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Jumlah (Rp)</label>
+                  <input
+                    type="number"
+                    value={editForm.amount}
+                    onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label>Tanggal</label>
+                  <input
+                    type="date"
+                    value={editForm.date}
+                    onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn" onClick={() => saveEdit(t.id)}>Simpan</button>
+                <button className="btn-accent" style={{ background: '#9aa0a6' }} onClick={() => setEditingId(null)}>
+                  Batal
+                </button>
               </div>
             </div>
-            <div className={`list-card-amount ${t.amount >= 0 ? 'positive' : 'negative'}`}>
-              {rupiah(t.amount)}
+          ) : (
+            <div key={t.id} className={`list-card ${t.amount >= 0 ? 'positive' : 'negative'}`}>
+              <div className="list-card-main">
+                <div className="list-card-title">{t.description}</div>
+                <div className="list-card-sub">
+                  {new Date(t.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </div>
+              </div>
+              <div className="list-card-right">
+                <div className={`list-card-amount ${t.amount >= 0 ? 'positive' : 'negative'}`}>
+                  {rupiah(t.amount)}
+                </div>
+                <div className="list-card-actions">
+                  <button className="icon-btn" onClick={() => startEdit(t)} aria-label="Edit">✏️</button>
+                  <button className="icon-btn" onClick={() => removeTransaction(t.id)} aria-label="Hapus">🗑️</button>
+                </div>
+              </div>
             </div>
-          </div>
-        ))
+          )
+        )
       )}
     </>
   )
