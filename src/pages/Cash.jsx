@@ -10,14 +10,17 @@ import {
 import { db } from '../firebase'
 import { useAuth } from '../AuthContext'
 
-const currency = (n) =>
-  n.toLocaleString(undefined, { style: 'currency', currency: 'USD' })
+const rupiah = (n) => {
+  const sign = n < 0 ? '-' : '+'
+  return `${sign} Rp ${Math.abs(n).toLocaleString('id-ID')}`
+}
 
 export default function Cash() {
   const { user } = useAuth()
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ description: '', amount: '', type: 'income', category: '', date: '' })
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState({ description: '', amount: '', type: 'income', date: '' })
 
   useEffect(() => {
     const q = query(collection(db, 'transactions'), orderBy('date', 'desc'))
@@ -36,125 +39,93 @@ export default function Cash() {
     await addDoc(collection(db, 'transactions'), {
       description: form.description,
       amount: signedAmount,
-      category: form.category || 'General',
       date: form.date,
       createdBy: user?.email || 'unknown',
       createdAt: serverTimestamp(),
     })
-    setForm({ description: '', amount: '', type: 'income', category: '', date: '' })
+    setForm({ description: '', amount: '', type: 'income', date: '' })
+    setShowForm(false)
   }
 
   const balance = transactions.reduce((sum, t) => sum + t.amount, 0)
-  const income = transactions.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0)
-  const expense = transactions.filter((t) => t.amount < 0).reduce((s, t) => s + t.amount, 0)
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h1>Cash</h1>
-          <p>Income, expenses and running balance.</p>
+      <div className="stat-card">
+        <div className="label">Total Saldo Makam</div>
+        <div className={`value ${balance >= 0 ? 'positive' : 'negative'}`}>
+          Rp {Math.abs(balance).toLocaleString('id-ID')}
         </div>
       </div>
 
-      <div className="stat-row">
-        <div className="stat">
-          <div className="label">Balance</div>
-          <div className={`value ${balance >= 0 ? 'positive' : 'negative'}`}>{currency(balance)}</div>
-        </div>
-        <div className="stat">
-          <div className="label">Income</div>
-          <div className="value positive">{currency(income)}</div>
-        </div>
-        <div className="stat">
-          <div className="label">Expense</div>
-          <div className="value negative">{currency(expense)}</div>
-        </div>
+      <div className="section-row">
+        <h2>Riwayat Transaksi</h2>
+        <button className="btn-accent" onClick={() => setShowForm((s) => !s)}>
+          {showForm ? 'Tutup' : '+ Tambah'}
+        </button>
       </div>
 
-      <div className="card">
-        <h3 style={{ marginBottom: 14, fontSize: 16 }}>Add transaction</h3>
-        <form onSubmit={handleSubmit}>
-          <div className="form-grid">
-            <div>
-              <label>Description</label>
-              <input
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="e.g. Member dues — March"
-              />
+      {showForm && (
+        <div className="card">
+          <form onSubmit={handleSubmit}>
+            <div className="form-grid">
+              <div>
+                <label>Deskripsi</label>
+                <input
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="cth. Iuran warga"
+                />
+              </div>
+              <div>
+                <label>Jenis</label>
+                <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+                  <option value="income">Pemasukan</option>
+                  <option value="expense">Pengeluaran</option>
+                </select>
+              </div>
+              <div>
+                <label>Jumlah (Rp)</label>
+                <input
+                  type="number"
+                  value={form.amount}
+                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label>Tanggal</label>
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => setForm({ ...form, date: e.target.value })}
+                />
+              </div>
             </div>
-            <div>
-              <label>Type</label>
-              <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-                <option value="income">Income</option>
-                <option value="expense">Expense</option>
-              </select>
+            <button className="btn" type="submit">Simpan Transaksi</button>
+          </form>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="empty-state">Memuat…</p>
+      ) : transactions.length === 0 ? (
+        <p className="empty-state">Belum ada transaksi. Tambahkan yang pertama.</p>
+      ) : (
+        transactions.map((t) => (
+          <div key={t.id} className={`list-card ${t.amount >= 0 ? 'positive' : 'negative'}`}>
+            <div className="list-card-main">
+              <div className="list-card-title">{t.description}</div>
+              <div className="list-card-sub">
+                {new Date(t.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </div>
             </div>
-            <div>
-              <label>Amount</label>
-              <input
-                type="number"
-                step="0.01"
-                value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                placeholder="0.00"
-              />
-            </div>
-            <div>
-              <label>Category</label>
-              <input
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-                placeholder="e.g. Dues, Supplies"
-              />
-            </div>
-            <div>
-              <label>Date</label>
-              <input
-                type="date"
-                value={form.date}
-                onChange={(e) => setForm({ ...form, date: e.target.value })}
-              />
+            <div className={`list-card-amount ${t.amount >= 0 ? 'positive' : 'negative'}`}>
+              {rupiah(t.amount)}
             </div>
           </div>
-          <button className="btn" type="submit">Add entry</button>
-        </form>
-      </div>
-
-      <div className="card">
-        <h3 style={{ marginBottom: 14, fontSize: 16 }}>Ledger</h3>
-        {loading ? (
-          <p className="empty-state">Loading…</p>
-        ) : transactions.length === 0 ? (
-          <p className="empty-state">No transactions yet. Add the first one above.</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Description</th>
-                <th>Category</th>
-                <th>Added by</th>
-                <th style={{ textAlign: 'right' }}>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.map((t) => (
-                <tr key={t.id}>
-                  <td>{t.date}</td>
-                  <td>{t.description}</td>
-                  <td><span className="tag">{t.category}</span></td>
-                  <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{t.createdBy}</td>
-                  <td className={`amount ${t.amount >= 0 ? 'positive' : 'negative'}`}>
-                    {currency(t.amount)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+        ))
+      )}
     </>
   )
 }
