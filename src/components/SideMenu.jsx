@@ -43,6 +43,9 @@ export default function SideMenu({ open, onClose }) {
             <NavLink to="/approvals" onClick={onClose} className={({ isActive }) => (isActive ? 'active' : '')}>
               Persetujuan Akun
             </NavLink>
+            <NavLink to="/logs" onClick={onClose} className={({ isActive }) => (isActive ? 'active' : '')}>
+              Log Aktivitas
+            </NavLink>
           </nav>
         )}
 
