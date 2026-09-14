@@ -1,5 +1,5 @@
 import React from 'react'
-import { useNavigate } from 'react-router-dom'
+import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
 
 function PersonIcon() {
@@ -12,7 +12,7 @@ function PersonIcon() {
 }
 
 export default function SideMenu({ open, onClose }) {
-  const { user, logout } = useAuth()
+  const { user, logout, isAdmin } = useAuth()
   const navigate = useNavigate()
 
   if (!open) return null
@@ -37,6 +37,14 @@ export default function SideMenu({ open, onClose }) {
             <div className="drawer-email">{user?.email}</div>
           </div>
         </button>
+
+        {isAdmin && (
+          <nav className="drawer-nav">
+            <NavLink to="/approvals" onClick={onClose} className={({ isActive }) => (isActive ? 'active' : '')}>
+              Persetujuan Akun
+            </NavLink>
+          </nav>
+        )}
 
         <div className="drawer-footer" style={{ marginTop: 'auto' }}>
           <button className="btn" style={{ background: 'var(--red)' }} onClick={logout}>
