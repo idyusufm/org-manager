@@ -103,6 +103,18 @@ export default function Org() {
     await logActivity(user, 'delete', `Menghapus tugas "${title}"`)
   }
 
+  const OwnerSelect = ({ value, onChange }) => (
+    <select value={value} onChange={onChange}>
+      <option value="">Pilih pengurus…</option>
+      {members.map((m) => (
+        <option key={m.id} value={m.name}>{m.name}</option>
+      ))}
+      {value && !members.some((m) => m.name === value) && (
+        <option value={value}>{value} (tidak terdaftar)</option>
+      )}
+    </select>
+  )
+
   return (
     <>
       <div className="section-row">
@@ -193,57 +205,4 @@ export default function Org() {
                 </div>
               </div>
               <div className="list-card-actions">
-                <button className="icon-btn" onClick={() => startEditMember(m)} aria-label="Edit">✏️</button>
-                <button className="icon-btn" onClick={() => removeMember(m.id, m.name)} aria-label="Hapus">🗑️</button>
-              </div>
-            </div>
-          )
-        )
-      )}
-
-      <div className="section-row" style={{ marginTop: 28 }}>
-        <h2>Tugas</h2>
-        <button className="btn-accent" onClick={() => setShowTaskForm((s) => !s)}>
-          {showTaskForm ? 'Tutup' : '+ Tambah'}
-        </button>
-      </div>
-
-      {showTaskForm && (
-        <div className="card">
-          <form onSubmit={addTask}>
-            <div className="form-grid">
-              <div>
-                <label>Judul Tugas</label>
-                <input value={taskForm.title} onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })} />
-              </div>
-              <div>
-                <label>Penanggung Jawab</label>
-                <input value={taskForm.owner} onChange={(e) => setTaskForm({ ...taskForm, owner: e.target.value })} />
-              </div>
-            </div>
-            <button className="btn" type="submit">Simpan Tugas</button>
-          </form>
-        </div>
-      )}
-
-      {tasks.length === 0 ? (
-        <p className="empty-state">Belum ada tugas.</p>
-      ) : (
-        tasks.map((t) => (
-          <div key={t.id} className="list-card" style={{ borderLeftColor: t.done ? 'var(--green)' : 'var(--tag-gray)' }}>
-            <div className="checkbox-row">
-              <input type="checkbox" checked={!!t.done} onChange={() => toggleTask(t)} />
-              <span style={{ textDecoration: t.done ? 'line-through' : 'none', color: t.done ? 'var(--text-muted)' : 'var(--text)' }}>
-                {t.title}
-              </span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-              <div className="list-card-sub">{t.owner}</div>
-              <button className="icon-btn" onClick={() => removeTask(t.id, t.title)} aria-label="Hapus">🗑️</button>
-            </div>
-          </div>
-        ))
-      )}
-    </>
-  )
-}
+                <button className="icon-btn" onClick={() =>
