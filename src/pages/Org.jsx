@@ -11,6 +11,8 @@ import {
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../firebase'
+import { useAuth } from '../AuthContext'
+import { logActivity } from '../logActivity'
 
 function PersonIcon() {
   return (
@@ -24,6 +26,7 @@ function PersonIcon() {
 const emptyMember = { name: '', role: '', phone: '' }
 
 export default function Org() {
+  const { user } = useAuth()
   const [members, setMembers] = useState([])
   const [tasks, setTasks] = useState([])
   const [loading, setLoading] = useState(true)
@@ -54,6 +57,7 @@ export default function Org() {
     e.preventDefault()
     if (!memberForm.name) return
     await addDoc(collection(db, 'members'), { ...memberForm })
+    await logActivity(user, 'add', `Menambah pengurus "${memberForm.name}"`)
     setMemberForm(emptyMember)
     setShowMemberForm(false)
   }
@@ -65,12 +69,14 @@ export default function Org() {
 
   const saveMemberEdit = async (id) => {
     await updateDoc(doc(db, 'members', id), { ...editMemberForm })
+    await logActivity(user, 'edit', `Mengubah data pengurus "${editMemberForm.name}"`)
     setEditingMemberId(null)
   }
 
-  const removeMember = async (id) => {
+  const removeMember = async (id, name) => {
     if (!window.confirm('Hapus pengurus ini?')) return
     await deleteDoc(doc(db, 'members', id))
+    await logActivity(user, 'delete', `Menghapus pengurus "${name}"`)
   }
 
   const addTask = async (e) => {
@@ -81,17 +87,20 @@ export default function Org() {
       done: false,
       createdAt: serverTimestamp(),
     })
+    await logActivity(user, 'add', `Menambah tugas "${taskForm.title}"`)
     setTaskForm({ title: '', owner: '' })
     setShowTaskForm(false)
   }
 
   const toggleTask = async (task) => {
     await updateDoc(doc(db, 'tasks', task.id), { done: !task.done })
+    await logActivity(user, 'edit', `Menandai tugas "${task.title}" sebagai ${!task.done ? 'selesai' : 'belum selesai'}`)
   }
 
-  const removeTask = async (id) => {
+  const removeTask = async (id, title) => {
     if (!window.confirm('Hapus tugas ini?')) return
     await deleteDoc(doc(db, 'tasks', id))
+    await logActivity(user, 'delete', `Menghapus tugas "${title}"`)
   }
 
   return (
@@ -185,7 +194,7 @@ export default function Org() {
               </div>
               <div className="list-card-actions">
                 <button className="icon-btn" onClick={() => startEditMember(m)} aria-label="Edit">✏️</button>
-                <button className="icon-btn" onClick={() => removeMember(m.id)} aria-label="Hapus">🗑️</button>
+                <button className="icon-btn" onClick={() => removeMember(m.id, m.name)} aria-label="Hapus">🗑️</button>
               </div>
             </div>
           )
@@ -230,7 +239,7 @@ export default function Org() {
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
               <div className="list-card-sub">{t.owner}</div>
-              <button className="icon-btn" onClick={() => removeTask(t.id)} aria-label="Hapus">🗑️</button>
+              <button className="icon-btn" onClick={() => removeTask(t.id, t.title)} aria-label="Hapus">🗑️</button>
             </div>
           </div>
         ))
