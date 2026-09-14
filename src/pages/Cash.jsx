@@ -21,6 +21,58 @@ const rupiah = (n) => {
 
 const emptyForm = { description: '', amount: '', type: 'income', date: '' }
 
+const PERIODS = {
+  week: 'Minggu Ini (7 hari)',
+  month: 'Bulan Ini',
+  year: 'Tahun Ini',
+  all: 'Semua Data',
+}
+
+function filterByPeriod(transactions, period) {
+  if (period === 'all') return transactions
+  const now = new Date()
+  return transactions.filter((t) => {
+    const d = new Date(t.date)
+    if (period === 'week') {
+      const weekAgo = new Date()
+      weekAgo.setDate(now.getDate() - 7)
+      return d >= weekAgo && d <= now
+    }
+    if (period === 'month') {
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+    }
+    if (period === 'year') {
+      return d.getFullYear() === now.getFullYear()
+    }
+    return true
+  })
+}
+
+function downloadCsv(transactions, period) {
+  const header = ['Tanggal', 'Deskripsi', 'Jenis', 'Jumlah (Rp)']
+  const rows = transactions.map((t) => [
+    t.date,
+    `"${(t.description || '').replace(/"/g, '""')}"`,
+    t.amount >= 0 ? 'Pemasukan' : 'Pengeluaran',
+    Math.abs(t.amount),
+  ])
+  const balance = transactions.reduce((sum, t) => sum + t.amount, 0)
+  rows.push([])
+  rows.push(['', '', 'Saldo Akhir', balance])
+
+  const csv = [header, ...rows].map((r) => r.join(',')).join('\n')
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  const today = new Date().toISOString().slice(0, 10)
+  a.href = url
+  a.download = `kas-simaqom-${period}-${today}.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
+
 export default function Cash() {
   const { user } = useAuth()
   const [transactions, setTransactions] = useState([])
@@ -29,6 +81,8 @@ export default function Cash() {
   const [form, setForm] = useState(emptyForm)
   const [editingId, setEditingId] = useState(null)
   const [editForm, setEditForm] = useState(emptyForm)
+  const [showExport, setShowExport] = useState(false)
+  const [exportPeriod, setExportPeriod] = useState('month')
 
   useEffect(() => {
     const q = query(collection(db, 'transactions'), orderBy('date', 'desc'))
@@ -84,6 +138,17 @@ export default function Cash() {
     await logActivity(user, 'delete', `Menghapus transaksi "${description}"`)
   }
 
+  const handleExport = async () => {
+    const filtered = filterByPeriod(transactions, exportPeriod)
+    if (filtered.length === 0) {
+      alert('Tidak ada transaksi pada periode ini.')
+      return
+    }
+    downloadCsv(filtered, exportPeriod)
+    await logActivity(user, 'export', `Mengekspor data Kas (${PERIODS[exportPeriod]}, ${filtered.length} transaksi)`)
+    setShowExport(false)
+  }
+
   const balance = transactions.reduce((sum, t) => sum + t.amount, 0)
 
   return (
@@ -97,10 +162,30 @@ export default function Cash() {
 
       <div className="section-row">
         <h2>Riwayat Transaksi</h2>
-        <button className="btn-accent" onClick={() => setShowForm((s) => !s)}>
-          {showForm ? 'Tutup' : '+ Tambah'}
-        </button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn-accent" style={{ background: 'var(--green)' }} onClick={() => setShowExport((s) => !s)}>
+            {showExport ? 'Tutup' : '⬇ Ekspor'}
+          </button>
+          <button className="btn-accent" onClick={() => setShowForm((s) => !s)}>
+            {showForm ? 'Tutup' : '+ Tambah'}
+          </button>
+        </div>
       </div>
+
+      {showExport && (
+        <div className="card">
+          <label>Pilih Periode</label>
+          <select value={exportPeriod} onChange={(e) => setExportPeriod(e.target.value)} style={{ marginBottom: 14 }}>
+            {Object.entries(PERIODS).map(([key, label]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
+          <button className="btn" onClick={handleExport}>Unduh CSV</button>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 10 }}>
+            File CSV bisa dibuka langsung di Google Sheets: buka sheets.google.com → File → Import → Upload, lalu pilih file yang terunduh.
+          </p>
+        </div>
+      )}
 
       {showForm && (
         <div className="card">
