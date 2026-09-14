@@ -6,43 +6,46 @@ import { auth, db } from './firebase'
 const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
-  const [user, setUser] = useState(null)
+  const [firebaseUser, setFirebaseUser] = useState(null)
+  const [approved, setApproved] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [loading, setLoading] = useState(true)
   const [checkError, setCheckError] = useState('')
 
+  const checkApproval = async (u) => {
+    if (!u) {
+      setApproved(false)
+      setIsAdmin(false)
+      return
+    }
+    const email = (u.email || '').toLowerCase()
+    try {
+      const snap = await getDoc(doc(db, 'allowedEmails', email))
+      if (snap.exists()) {
+        setApproved(true)
+        setIsAdmin(snap.data()?.admin === true)
+      } else {
+        setApproved(false)
+        setIsAdmin(false)
+      }
+    } catch (e) {
+      setApproved(false)
+      setIsAdmin(false)
+    }
+  }
+
   useEffect(() => {
-    // Surfaces any error from the Google redirect sign-in itself
-    // (e.g. unauthorized domain, blocked storage) instead of failing silently.
     getRedirectResult(auth).catch((err) => {
-      setCheckError(`Google sign-in gagal (${err.code || 'unknown'}). Coba lagi atau gunakan email/kata sandi.`)
+      setCheckError(`Google sign-in gagal (${err.code || 'unknown'}).`)
     })
   }, [])
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      if (!u) {
-        setUser(null)
-        setLoading(false)
-        return
-      }
       setCheckError('')
-      try {
-        const email = (u.email || '').toLowerCase()
-        const snap = await getDoc(doc(db, 'allowedEmails', email))
-        if (snap.exists()) {
-          setUser({ ...u })
-        } else {
-          setCheckError("This account isn't approved yet. Ask an admin to add your email, then sign in again.")
-          await signOut(auth)
-          setUser(null)
-        }
-      } catch (e) {
-        setCheckError('Could not verify access. Please try again.')
-        await signOut(auth)
-        setUser(null)
-      } finally {
-        setLoading(false)
-      }
+      setFirebaseUser(u)
+      await checkApproval(u)
+      setLoading(false)
     })
     return unsubscribe
   }, [])
@@ -52,11 +55,27 @@ export function AuthProvider({ children }) {
   const refreshUser = async () => {
     if (!auth.currentUser) return
     await auth.currentUser.reload()
-    setUser({ ...auth.currentUser })
+    setFirebaseUser({ ...auth.currentUser })
+  }
+
+  const recheckApproval = async () => {
+    if (auth.currentUser) await checkApproval(auth.currentUser)
   }
 
   return (
-    <AuthContext.Provider value={{ user, loading, logout, checkError, refreshUser }}>
+    <AuthContext.Provider
+      value={{
+        user: approved ? firebaseUser : null,
+        firebaseUser,
+        approved,
+        isAdmin,
+        loading,
+        logout,
+        checkError,
+        refreshUser,
+        recheckApproval,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   )
