@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  signInWithRedirect,
+  signInWithPopup,
 } from 'firebase/auth'
 import { auth, googleProvider } from '../firebase'
 import { useAuth } from '../AuthContext'
@@ -37,9 +37,16 @@ export default function Login() {
     }
   }
 
-  const handleGoogle = () => {
+  const handleGoogle = async () => {
     setError('')
-    signInWithRedirect(auth, googleProvider)
+    setBusy(true)
+    try {
+      await signInWithPopup(auth, googleProvider)
+    } catch (err) {
+      setError(`Google sign-in gagal (${err.code || 'unknown'}).`)
+    } finally {
+      setBusy(false)
+    }
   }
 
   return (
