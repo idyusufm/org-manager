@@ -11,9 +11,19 @@
   --tag-blue: #2f6fed;
   --tag-orange: #f2994a;
   --tag-gray: #9aa0a6;
+  --input-bg: #ffffff;
 
   --font-body: 'IBM Plex Sans', system-ui, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+}
+
+[data-theme="dark"] {
+  --bg: #14171a;
+  --card: #1f2428;
+  --text: #e8eaed;
+  --text-muted: #9aa4ad;
+  --border: #30363d;
+  --input-bg: #1f2428;
 }
 
 * {
@@ -100,7 +110,7 @@ a {
   left: 0;
   right: 0;
   height: 72px;
-  background: #fff;
+  background: var(--card);
   display: flex;
   z-index: 20;
   border-top: 1px solid var(--border);
@@ -114,7 +124,7 @@ a {
   justify-content: center;
   gap: 3px;
   text-decoration: none;
-  color: #6b7280;
+  color: var(--text-muted);
   font-size: 13px;
   font-weight: 600;
 }
@@ -423,7 +433,7 @@ textarea {
   border-radius: 6px;
   font-family: var(--font-body);
   font-size: 14px;
-  background: #fff;
+  background: var(--input-bg);
   color: var(--text);
 }
 
@@ -476,7 +486,7 @@ label {
   bottom: 0;
   left: 0;
   width: 260px;
-  background: #fff;
+  background: var(--card);
   z-index: 50;
   display: flex;
   flex-direction: column;
@@ -558,4 +568,27 @@ label {
   align-items: center;
   justify-content: center;
   padding: 0;
+}
+
+.theme-row {
+  display: flex;
+  gap: 8px;
+  padding: 12px 18px;
+}
+
+.theme-btn {
+  flex: 1;
+  border: 1px solid var(--border);
+  background: var(--card);
+  color: var(--text-muted);
+  border-radius: 6px;
+  padding: 8px 4px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.theme-btn.active {
+  border-color: var(--green);
+  color: var(--green);
+  font-weight: 700;
 }
