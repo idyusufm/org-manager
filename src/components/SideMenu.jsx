@@ -1,6 +1,7 @@
 import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from '../AuthContext'
+import { useTheme } from '../ThemeContext'
 
 function PersonIcon() {
   return (
@@ -13,6 +14,7 @@ function PersonIcon() {
 
 export default function SideMenu({ open, onClose }) {
   const { user, logout, isAdmin } = useAuth()
+  const { theme, setTheme } = useTheme()
   const navigate = useNavigate()
 
   if (!open) return null
@@ -48,6 +50,28 @@ export default function SideMenu({ open, onClose }) {
             </NavLink>
           </nav>
         )}
+
+        <div style={{ padding: '8px 18px 0', fontSize: 12, color: 'var(--text-muted)' }}>Tema</div>
+        <div className="theme-row">
+          <button
+            className={`theme-btn ${theme === 'light' ? 'active' : ''}`}
+            onClick={() => setTheme('light')}
+          >
+            ☀️ Terang
+          </button>
+          <button
+            className={`theme-btn ${theme === 'dark' ? 'active' : ''}`}
+            onClick={() => setTheme('dark')}
+          >
+            🌙 Gelap
+          </button>
+          <button
+            className={`theme-btn ${theme === 'system' ? 'active' : ''}`}
+            onClick={() => setTheme('system')}
+          >
+            📱 Perangkat
+          </button>
+        </div>
 
         <div className="drawer-footer" style={{ marginTop: 'auto' }}>
           <button className="btn" style={{ background: 'var(--red)' }} onClick={logout}>
