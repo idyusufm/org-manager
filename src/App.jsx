@@ -11,11 +11,12 @@ import Profile from './pages/Profile'
 import Approvals from './pages/Approvals'
 import Logs from './pages/Logs'
 
-function Gate({ children }) {
-  const { loading, firebaseUser, approved } = useAuth()
+function Gate({ children, skipNameCheck }) {
+  const { loading, firebaseUser, approved, user } = useAuth()
   if (loading) return <div style={{ padding: 40 }}>Memuat…</div>
   if (!firebaseUser) return <Navigate to="/login" replace />
   if (!approved) return <Navigate to="/verify" replace />
+  if (!skipNameCheck && !user?.displayName) return <Navigate to="/profile" replace />
   return <Layout>{children}</Layout>
 }
 
@@ -41,7 +42,7 @@ function AppRoutes() {
       <Route path="/cash" element={<Gate><Cash /></Gate>} />
       <Route path="/agenda" element={<Gate><Agenda /></Gate>} />
       <Route path="/org" element={<Gate><Org /></Gate>} />
-      <Route path="/profile" element={<Gate><Profile /></Gate>} />
+      <Route path="/profile" element={<Gate skipNameCheck><Profile /></Gate>} />
       <Route path="/approvals" element={<Gate><AdminGate><Approvals /></AdminGate></Gate>} />
       <Route path="/logs" element={<Gate><AdminGate><Logs /></AdminGate></Gate>} />
       <Route path="*" element={<Navigate to="/cash" replace />} />
