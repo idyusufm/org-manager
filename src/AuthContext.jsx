@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { onAuthStateChanged, signOut } from 'firebase/auth'
+import { onAuthStateChanged, getRedirectResult, signOut } from 'firebase/auth'
 import { doc, getDoc } from 'firebase/firestore'
 import { auth, db } from './firebase'
 
@@ -11,13 +11,21 @@ export function AuthProvider({ children }) {
   const [checkError, setCheckError] = useState('')
 
   useEffect(() => {
+    // Surfaces any error from the Google redirect sign-in itself
+    // (e.g. unauthorized domain, blocked storage) instead of failing silently.
+    getRedirectResult(auth).catch((err) => {
+      setCheckError(`Google sign-in gagal (${err.code || 'unknown'}). Coba lagi atau gunakan email/kata sandi.`)
+    })
+  }, [])
+
+  useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (u) => {
-      setCheckError('')
       if (!u) {
         setUser(null)
         setLoading(false)
         return
       }
+      setCheckError('')
       try {
         const email = (u.email || '').toLowerCase()
         const snap = await getDoc(doc(db, 'allowedEmails', email))
@@ -41,8 +49,6 @@ export function AuthProvider({ children }) {
 
   const logout = () => signOut(auth)
 
-  // Firebase Auth's profile (like displayName) doesn't trigger onAuthStateChanged
-  // when it changes, so components call this after updateProfile() to refresh.
   const refreshUser = async () => {
     if (!auth.currentUser) return
     await auth.currentUser.reload()
