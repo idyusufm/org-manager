@@ -9,6 +9,7 @@ import Agenda from './pages/Agenda'
 import Org from './pages/Org'
 import Profile from './pages/Profile'
 import Approvals from './pages/Approvals'
+import Logs from './pages/Logs'
 
 function Gate({ children }) {
   const { loading, firebaseUser, approved } = useAuth()
@@ -42,6 +43,7 @@ function AppRoutes() {
       <Route path="/org" element={<Gate><Org /></Gate>} />
       <Route path="/profile" element={<Gate><Profile /></Gate>} />
       <Route path="/approvals" element={<Gate><AdminGate><Approvals /></AdminGate></Gate>} />
+      <Route path="/logs" element={<Gate><AdminGate><Logs /></AdminGate></Gate>} />
       <Route path="*" element={<Navigate to="/cash" replace />} />
     </Routes>
   )
