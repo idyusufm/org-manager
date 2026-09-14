@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../AuthContext'
+import { logActivity } from '../logActivity'
 
 const rupiah = (n) => {
   const sign = n < 0 ? '-' : '+'
@@ -50,6 +51,7 @@ export default function Cash() {
       createdBy: user?.email || 'unknown',
       createdAt: serverTimestamp(),
     })
+    await logActivity(user, 'add', `Menambah transaksi "${form.description}" (${rupiah(signedAmount)})`)
     setForm(emptyForm)
     setShowForm(false)
   }
@@ -72,12 +74,14 @@ export default function Cash() {
       amount: signedAmount,
       date: editForm.date,
     })
+    await logActivity(user, 'edit', `Mengubah transaksi "${editForm.description}"`)
     setEditingId(null)
   }
 
-  const removeTransaction = async (id) => {
+  const removeTransaction = async (id, description) => {
     if (!window.confirm('Hapus transaksi ini? Saldo akan dihitung ulang otomatis.')) return
     await deleteDoc(doc(db, 'transactions', id))
+    await logActivity(user, 'delete', `Menghapus transaksi "${description}"`)
   }
 
   const balance = transactions.reduce((sum, t) => sum + t.amount, 0)
@@ -201,7 +205,7 @@ export default function Cash() {
                 </div>
                 <div className="list-card-actions">
                   <button className="icon-btn" onClick={() => startEdit(t)} aria-label="Edit">✏️</button>
-                  <button className="icon-btn" onClick={() => removeTransaction(t.id)} aria-label="Hapus">🗑️</button>
+                  <button className="icon-btn" onClick={() => removeTransaction(t.id, t.description)} aria-label="Hapus">🗑️</button>
                 </div>
               </div>
             </div>
