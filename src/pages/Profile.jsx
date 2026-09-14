@@ -8,14 +8,24 @@ export default function Profile() {
   const [name, setName] = useState(user?.displayName || '')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState('')
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    setSaving(true)
     setSaved(false)
+    setError('')
+
+    const trimmed = name.trim()
+    if (!trimmed) {
+      setError('Nama tidak boleh kosong.')
+      return
+    }
+
+    setSaving(true)
     try {
-      await updateProfile(auth.currentUser, { displayName: name.trim() })
+      await updateProfile(auth.currentUser, { displayName: trimmed })
       await refreshUser()
+      setName(trimmed)
       setSaved(true)
     } finally {
       setSaving(false)
@@ -42,6 +52,7 @@ export default function Profile() {
             onChange={(e) => {
               setName(e.target.value)
               setSaved(false)
+              setError('')
             }}
             placeholder="cth. Yusuf"
             style={{ marginBottom: 12 }}
@@ -49,6 +60,7 @@ export default function Profile() {
           <button className="btn" type="submit" disabled={saving}>
             {saving ? 'Menyimpan…' : 'Simpan Nama'}
           </button>
+          {error && <p className="error-text">{error}</p>}
           {saved && <p style={{ color: 'var(--green)', fontSize: 13, marginTop: 10 }}>Nama berhasil disimpan.</p>}
         </form>
       </div>
