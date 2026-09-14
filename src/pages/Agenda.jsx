@@ -12,6 +12,7 @@ import {
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../AuthContext'
+import { logActivity } from '../logActivity'
 
 const CATEGORY_COLORS = {
   Harian: 'blue',
@@ -56,6 +57,7 @@ export default function Agenda() {
       createdBy: user?.email || 'unknown',
       createdAt: serverTimestamp(),
     })
+    await logActivity(user, 'add', `Menambah agenda "${form.title}"`)
     setForm(emptyForm)
     setShowForm(false)
   }
@@ -67,12 +69,14 @@ export default function Agenda() {
 
   const saveEdit = async (id) => {
     await updateDoc(doc(db, 'events', id), { ...editForm })
+    await logActivity(user, 'edit', `Mengubah agenda "${editForm.title}"`)
     setEditingId(null)
   }
 
-  const removeEvent = async (id) => {
+  const removeEvent = async (id, title) => {
     if (!window.confirm('Hapus agenda ini?')) return
     await deleteDoc(doc(db, 'events', id))
+    await logActivity(user, 'delete', `Menghapus agenda "${title}"`)
   }
 
   const PjSelect = ({ value, onChange }) => (
@@ -196,7 +200,7 @@ export default function Agenda() {
               </div>
               <div className="list-card-actions">
                 <button className="icon-btn" onClick={() => startEdit(ev)} aria-label="Edit">✏️</button>
-                <button className="icon-btn" onClick={() => removeEvent(ev.id)} aria-label="Hapus">🗑️</button>
+                <button className="icon-btn" onClick={() => removeEvent(ev.id, ev.title)} aria-label="Hapus">🗑️</button>
               </div>
             </div>
           )
