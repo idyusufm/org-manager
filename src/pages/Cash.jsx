@@ -19,6 +19,11 @@ const rupiah = (n) => {
   return `${sign} Rp ${Math.abs(n).toLocaleString('id-ID')}`
 }
 
+const FUNDS = {
+  kas: 'Kas',
+  infaq: 'Infaq',
+}
+
 const emptyForm = { description: '', amount: '', type: 'income', date: '' }
 
 const PERIODS = {
@@ -48,7 +53,7 @@ function filterByPeriod(transactions, period) {
   })
 }
 
-function downloadCsv(transactions, period) {
+function downloadCsv(transactions, fund, period) {
   const header = ['Tanggal', 'Deskripsi', 'Jenis', 'Jumlah (Rp)']
   const rows = transactions.map((t) => [
     t.date,
@@ -66,7 +71,7 @@ function downloadCsv(transactions, period) {
   const a = document.createElement('a')
   const today = new Date().toISOString().slice(0, 10)
   a.href = url
-  a.download = `kas-simaqom-${period}-${today}.csv`
+  a.download = `${fund}-simaqom-${period}-${today}.csv`
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
@@ -77,6 +82,7 @@ export default function Cash() {
   const { user } = useAuth()
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
+  const [activeFund, setActiveFund] = useState('kas')
   const [showForm, setShowForm] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [editingId, setEditingId] = useState(null)
@@ -87,11 +93,13 @@ export default function Cash() {
   useEffect(() => {
     const q = query(collection(db, 'transactions'), orderBy('date', 'desc'))
     const unsub = onSnapshot(q, (snap) => {
-      setTransactions(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+      setTransactions(snap.docs.map((d) => ({ id: d.id, fund: 'kas', ...d.data() })))
       setLoading(false)
     })
     return unsub
   }, [])
+
+  const fundTransactions = transactions.filter((t) => (t.fund || 'kas') === activeFund)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -102,10 +110,11 @@ export default function Cash() {
       description: form.description,
       amount: signedAmount,
       date: form.date,
+      fund: activeFund,
       createdBy: user?.email || 'unknown',
       createdAt: serverTimestamp(),
     })
-    await logActivity(user, 'add', `Menambah transaksi "${form.description}" (${rupiah(signedAmount)})`)
+    await logActivity(user, 'add', `Menambah transaksi ${FUNDS[activeFund]} "${form.description}" (${rupiah(signedAmount)})`)
     setForm(emptyForm)
     setShowForm(false)
   }
@@ -128,40 +137,60 @@ export default function Cash() {
       amount: signedAmount,
       date: editForm.date,
     })
-    await logActivity(user, 'edit', `Mengubah transaksi "${editForm.description}"`)
+    await logActivity(user, 'edit', `Mengubah transaksi ${FUNDS[activeFund]} "${editForm.description}"`)
     setEditingId(null)
   }
 
   const removeTransaction = async (id, description) => {
     if (!window.confirm('Hapus transaksi ini? Saldo akan dihitung ulang otomatis.')) return
     await deleteDoc(doc(db, 'transactions', id))
-    await logActivity(user, 'delete', `Menghapus transaksi "${description}"`)
+    await logActivity(user, 'delete', `Menghapus transaksi ${FUNDS[activeFund]} "${description}"`)
   }
 
   const handleExport = async () => {
-    const filtered = filterByPeriod(transactions, exportPeriod)
+    const filtered = filterByPeriod(fundTransactions, exportPeriod)
     if (filtered.length === 0) {
       alert('Tidak ada transaksi pada periode ini.')
       return
     }
-    downloadCsv(filtered, exportPeriod)
-    await logActivity(user, 'export', `Mengekspor data Kas (${PERIODS[exportPeriod]}, ${filtered.length} transaksi)`)
+    downloadCsv(filtered, activeFund, exportPeriod)
+    await logActivity(user, 'export', `Mengekspor data ${FUNDS[activeFund]} (${PERIODS[exportPeriod]}, ${filtered.length} transaksi)`)
     setShowExport(false)
   }
 
-  const balance = transactions.reduce((sum, t) => sum + t.amount, 0)
+  const balance = fundTransactions.reduce((sum, t) => sum + t.amount, 0)
 
   return (
     <>
+      <div className="theme-row" style={{ padding: 0, marginBottom: 18 }}>
+        {Object.entries(FUNDS).map(([key, label]) => (
+          <button
+            key={key}
+            className={`theme-btn ${activeFund === key ? 'active' : ''}`}
+            style={{ padding: '10px 4px' }}
+            onClick={() => {
+              setActiveFund(key)
+              setShowForm(false)
+              setShowExport(false)
+              setEditingId(null)
+            }}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
       <div className="stat-card">
-        <div className="label">Total Saldo Makam</div>
+        <div className="label">
+          {activeFund === 'kas' ? 'Total Saldo Kas' : 'Total Saldo Infaq'}
+        </div>
         <div className={`value ${balance >= 0 ? 'positive' : 'negative'}`}>
           Rp {Math.abs(balance).toLocaleString('id-ID')}
         </div>
       </div>
 
       <div className="section-row">
-        <h2>Riwayat Transaksi</h2>
+        <h2>Riwayat {FUNDS[activeFund]}</h2>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn-accent" style={{ background: 'var(--green)' }} onClick={() => setShowExport((s) => !s)}>
             {showExport ? 'Tutup' : '⬇ Ekspor'}
@@ -180,7 +209,7 @@ export default function Cash() {
               <option key={key} value={key}>{label}</option>
             ))}
           </select>
-          <button className="btn" onClick={handleExport}>Unduh CSV</button>
+          <button className="btn" onClick={handleExport}>Unduh CSV ({FUNDS[activeFund]})</button>
           <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 10 }}>
             File CSV bisa dibuka langsung di Google Sheets: buka sheets.google.com → File → Import → Upload, lalu pilih file yang terunduh.
           </p>
@@ -189,6 +218,9 @@ export default function Cash() {
 
       {showForm && (
         <div className="card">
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
+            Transaksi ini akan dicatat sebagai <strong>{FUNDS[activeFund]}</strong>.
+          </p>
           <form onSubmit={handleSubmit}>
             <div className="form-grid">
               <div>
@@ -196,7 +228,7 @@ export default function Cash() {
                 <input
                   value={form.description}
                   onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder="cth. Iuran warga"
+                  placeholder={activeFund === 'kas' ? 'cth. Iuran warga' : 'cth. Infaq peziarah'}
                 />
               </div>
               <div>
@@ -231,10 +263,10 @@ export default function Cash() {
 
       {loading ? (
         <p className="empty-state">Memuat…</p>
-      ) : transactions.length === 0 ? (
-        <p className="empty-state">Belum ada transaksi. Tambahkan yang pertama.</p>
+      ) : fundTransactions.length === 0 ? (
+        <p className="empty-state">Belum ada transaksi {FUNDS[activeFund]}. Tambahkan yang pertama.</p>
       ) : (
-        transactions.map((t) =>
+        fundTransactions.map((t) =>
           editingId === t.id ? (
             <div key={t.id} className="card">
               <div className="form-grid">
@@ -248,55 +280,3 @@ export default function Cash() {
                 <div>
                   <label>Jenis</label>
                   <select value={editForm.type} onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}>
-                    <option value="income">Pemasukan</option>
-                    <option value="expense">Pengeluaran</option>
-                  </select>
-                </div>
-                <div>
-                  <label>Jumlah (Rp)</label>
-                  <input
-                    type="number"
-                    value={editForm.amount}
-                    onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
-                  />
-                </div>
-                <div>
-                  <label>Tanggal</label>
-                  <input
-                    type="date"
-                    value={editForm.date}
-                    onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
-                  />
-                </div>
-              </div>
-              <div style={{ display: 'flex', gap: 8 }}>
-                <button className="btn" onClick={() => saveEdit(t.id)}>Simpan</button>
-                <button className="btn-accent" style={{ background: '#9aa0a6' }} onClick={() => setEditingId(null)}>
-                  Batal
-                </button>
-              </div>
-            </div>
-          ) : (
-            <div key={t.id} className={`list-card ${t.amount >= 0 ? 'positive' : 'negative'}`}>
-              <div className="list-card-main">
-                <div className="list-card-title">{t.description}</div>
-                <div className="list-card-sub">
-                  {new Date(t.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
-                </div>
-              </div>
-              <div className="list-card-right">
-                <div className={`list-card-amount ${t.amount >= 0 ? 'positive' : 'negative'}`}>
-                  {rupiah(t.amount)}
-                </div>
-                <div className="list-card-actions">
-                  <button className="icon-btn" onClick={() => startEdit(t)} aria-label="Edit">✏️</button>
-                  <button className="icon-btn" onClick={() => removeTransaction(t.id, t.description)} aria-label="Hapus">🗑️</button>
-                </div>
-              </div>
-            </div>
-          )
-        )
-      )}
-    </>
-  )
-}
