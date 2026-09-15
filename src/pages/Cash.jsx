@@ -351,7 +351,7 @@ export default function Cash() {
       {showForm && (
         <div className="card">
           {activeFund === 'kegiatan' && (
-            <p style={{ fontSize: 12, color: 'var(--text-muted)', marginBottom: 10 }}>
+            <p style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 10 }}>
               Pilih kegiatan dari agenda yang sudah ada, atau tambahkan agenda baru langsung dari sini.
             </p>
           )}
