@@ -16,32 +16,20 @@ export default function About() {
       </div>
 
       <div className="card">
-        
-          href="https://t.me/zwielichtstern"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="list-card"
-          style={{ marginBottom: 10, textDecoration: 'none' }}
-        >
+        <a href="https://t.me/zwielichtstern" target="_blank" rel="noopener noreferrer" className="list-card" style={{ marginBottom: 10, textDecoration: 'none' }}>
           <div className="list-card-main">
             <div className="list-card-title">Telegram</div>
             <div className="list-card-sub">@zwielichtstern</div>
           </div>
-          <span style={{ color: 'var(--text-muted)' }}>↗</span>
+          <span style={{ color: 'var(--text-muted)' }}>Open</span>
         </a>
 
-        
-          href="https://github.com/idyusufm/simaqom"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="list-card"
-          style={{ marginBottom: 0, textDecoration: 'none' }}
-        >
+        <a href="https://github.com/idyusufm/simaqom" target="_blank" rel="noopener noreferrer" className="list-card" style={{ marginBottom: 0, textDecoration: 'none' }}>
           <div className="list-card-main">
             <div className="list-card-title">GitHub</div>
             <div className="list-card-sub">idyusufm/simaqom</div>
           </div>
-          <span style={{ color: 'var(--text-muted)' }}>↗</span>
+          <span style={{ color: 'var(--text-muted)' }}>Open</span>
         </a>
       </div>
     </>
