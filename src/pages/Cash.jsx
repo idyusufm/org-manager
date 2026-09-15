@@ -156,9 +156,9 @@ export default function Cash() {
 
   return (
     <>
-      <div className="theme-row" style={{ padding: 0, marginBottom: 18 }}>
+      <div style={{ display: 'flex', gap: 8, marginBottom: 18 }}>
         {Object.entries(FUNDS).map(([key, label]) => (
-          <button key={key} className={'theme-btn ' + (activeFund === key ? 'active' : '')} style={{ padding: '10px 4px' }} onClick={() => { setActiveFund(key); setShowForm(false); setShowExport(false); setEditingId(null) }}>
+          <button key={key} className={'fund-tab ' + (activeFund === key ? 'active' : '')} onClick={() => { setActiveFund(key); setShowForm(false); setShowExport(false); setEditingId(null) }}>
             {label}
           </button>
         ))}
