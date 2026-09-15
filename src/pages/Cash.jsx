@@ -19,10 +19,7 @@ const rupiah = (n) => {
   return `${sign} Rp ${Math.abs(n).toLocaleString('id-ID')}`
 }
 
-const FUNDS = {
-  kas: 'Kas',
-  infaq: 'Infaq',
-}
+const FUNDS = { kas: 'Kas', infaq: 'Infaq' }
 
 const emptyForm = { description: '', amount: '', type: 'income', date: '' }
 
@@ -57,21 +54,20 @@ function downloadCsv(transactions, fund, period) {
   const header = ['Tanggal', 'Deskripsi', 'Jenis', 'Jumlah (Rp)']
   const rows = transactions.map((t) => [
     t.date,
-    `"${(t.description || '').replace(/"/g, '""')}"`,
+    '"' + (t.description || '').replace(/"/g, '""') + '"',
     t.amount >= 0 ? 'Pemasukan' : 'Pengeluaran',
     Math.abs(t.amount),
   ])
   const balance = transactions.reduce((sum, t) => sum + t.amount, 0)
   rows.push([])
   rows.push(['', '', 'Saldo Akhir', balance])
-
   const csv = [header, ...rows].map((r) => r.join(',')).join('\n')
   const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   const today = new Date().toISOString().slice(0, 10)
   a.href = url
-  a.download = `${fund}-simaqom-${period}-${today}.csv`
+  a.download = fund + '-simaqom-' + period + '-' + today + '.csv'
   document.body.appendChild(a)
   a.click()
   document.body.removeChild(a)
@@ -104,8 +100,7 @@ export default function Cash() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!form.description || !form.amount || !form.date) return
-    const signedAmount =
-      form.type === 'expense' ? -Math.abs(Number(form.amount)) : Math.abs(Number(form.amount))
+    const signedAmount = form.type === 'expense' ? -Math.abs(Number(form.amount)) : Math.abs(Number(form.amount))
     await addDoc(collection(db, 'transactions'), {
       description: form.description,
       amount: signedAmount,
@@ -114,7 +109,7 @@ export default function Cash() {
       createdBy: user?.email || 'unknown',
       createdAt: serverTimestamp(),
     })
-    await logActivity(user, 'add', `Menambah transaksi ${FUNDS[activeFund]} "${form.description}" (${rupiah(signedAmount)})`)
+    await logActivity(user, 'add', 'Menambah transaksi ' + FUNDS[activeFund] + ' "' + form.description + '"')
     setForm(emptyForm)
     setShowForm(false)
   }
@@ -130,21 +125,20 @@ export default function Cash() {
   }
 
   const saveEdit = async (id) => {
-    const signedAmount =
-      editForm.type === 'expense' ? -Math.abs(Number(editForm.amount)) : Math.abs(Number(editForm.amount))
+    const signedAmount = editForm.type === 'expense' ? -Math.abs(Number(editForm.amount)) : Math.abs(Number(editForm.amount))
     await updateDoc(doc(db, 'transactions', id), {
       description: editForm.description,
       amount: signedAmount,
       date: editForm.date,
     })
-    await logActivity(user, 'edit', `Mengubah transaksi ${FUNDS[activeFund]} "${editForm.description}"`)
+    await logActivity(user, 'edit', 'Mengubah transaksi ' + FUNDS[activeFund] + ' "' + editForm.description + '"')
     setEditingId(null)
   }
 
   const removeTransaction = async (id, description) => {
     if (!window.confirm('Hapus transaksi ini? Saldo akan dihitung ulang otomatis.')) return
     await deleteDoc(doc(db, 'transactions', id))
-    await logActivity(user, 'delete', `Menghapus transaksi ${FUNDS[activeFund]} "${description}"`)
+    await logActivity(user, 'delete', 'Menghapus transaksi ' + FUNDS[activeFund] + ' "' + description + '"')
   }
 
   const handleExport = async () => {
@@ -154,7 +148,7 @@ export default function Cash() {
       return
     }
     downloadCsv(filtered, activeFund, exportPeriod)
-    await logActivity(user, 'export', `Mengekspor data ${FUNDS[activeFund]} (${PERIODS[exportPeriod]}, ${filtered.length} transaksi)`)
+    await logActivity(user, 'export', 'Mengekspor data ' + FUNDS[activeFund] + ' (' + PERIODS[exportPeriod] + ', ' + filtered.length + ' transaksi)')
     setShowExport(false)
   }
 
@@ -164,27 +158,15 @@ export default function Cash() {
     <>
       <div className="theme-row" style={{ padding: 0, marginBottom: 18 }}>
         {Object.entries(FUNDS).map(([key, label]) => (
-          <button
-            key={key}
-            className={`theme-btn ${activeFund === key ? 'active' : ''}`}
-            style={{ padding: '10px 4px' }}
-            onClick={() => {
-              setActiveFund(key)
-              setShowForm(false)
-              setShowExport(false)
-              setEditingId(null)
-            }}
-          >
+          <button key={key} className={'theme-btn ' + (activeFund === key ? 'active' : '')} style={{ padding: '10px 4px' }} onClick={() => { setActiveFund(key); setShowForm(false); setShowExport(false); setEditingId(null) }}>
             {label}
           </button>
         ))}
       </div>
 
       <div className="stat-card">
-        <div className="label">
-          {activeFund === 'kas' ? 'Total Saldo Kas' : 'Total Saldo Infaq'}
-        </div>
-        <div className={`value ${balance >= 0 ? 'positive' : 'negative'}`}>
+        <div className="label">{activeFund === 'kas' ? 'Total Saldo Kas' : 'Total Saldo Infaq'}</div>
+        <div className={'value ' + (balance >= 0 ? 'positive' : 'negative')}>
           Rp {Math.abs(balance).toLocaleString('id-ID')}
         </div>
       </div>
@@ -193,7 +175,7 @@ export default function Cash() {
         <h2>Riwayat {FUNDS[activeFund]}</h2>
         <div style={{ display: 'flex', gap: 8 }}>
           <button className="btn-accent" style={{ background: 'var(--green)' }} onClick={() => setShowExport((s) => !s)}>
-            {showExport ? 'Tutup' : '⬇ Ekspor'}
+            {showExport ? 'Tutup' : 'Ekspor'}
           </button>
           <button className="btn-accent" onClick={() => setShowForm((s) => !s)}>
             {showForm ? 'Tutup' : '+ Tambah'}
@@ -209,10 +191,7 @@ export default function Cash() {
               <option key={key} value={key}>{label}</option>
             ))}
           </select>
-          <button className="btn" onClick={handleExport}>Unduh CSV ({FUNDS[activeFund]})</button>
-          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 10 }}>
-            File CSV bisa dibuka langsung di Google Sheets: buka sheets.google.com → File → Import → Upload, lalu pilih file yang terunduh.
-          </p>
+          <button className="btn" onClick={handleExport}>Unduh CSV</button>
         </div>
       )}
 
@@ -225,11 +204,7 @@ export default function Cash() {
             <div className="form-grid">
               <div>
                 <label>Deskripsi</label>
-                <input
-                  value={form.description}
-                  onChange={(e) => setForm({ ...form, description: e.target.value })}
-                  placeholder={activeFund === 'kas' ? 'cth. Iuran warga' : 'cth. Infaq peziarah'}
-                />
+                <input value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder={activeFund === 'kas' ? 'cth. Iuran warga' : 'cth. Infaq peziarah'} />
               </div>
               <div>
                 <label>Jenis</label>
@@ -240,20 +215,11 @@ export default function Cash() {
               </div>
               <div>
                 <label>Jumlah (Rp)</label>
-                <input
-                  type="number"
-                  value={form.amount}
-                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                  placeholder="0"
-                />
+                <input type="number" value={form.amount} onChange={(e) => setForm({ ...form, amount: e.target.value })} placeholder="0" />
               </div>
               <div>
                 <label>Tanggal</label>
-                <input
-                  type="date"
-                  value={form.date}
-                  onChange={(e) => setForm({ ...form, date: e.target.value })}
-                />
+                <input type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
               </div>
             </div>
             <button className="btn" type="submit">Simpan Transaksi</button>
@@ -264,7 +230,7 @@ export default function Cash() {
       {loading ? (
         <p className="empty-state">Memuat…</p>
       ) : fundTransactions.length === 0 ? (
-        <p className="empty-state">Belum ada transaksi {FUNDS[activeFund]}. Tambahkan yang pertama.</p>
+        <p className="empty-state">Belum ada transaksi {FUNDS[activeFund]}.</p>
       ) : (
         fundTransactions.map((t) =>
           editingId === t.id ? (
@@ -272,11 +238,48 @@ export default function Cash() {
               <div className="form-grid">
                 <div>
                   <label>Deskripsi</label>
-                  <input
-                    value={editForm.description}
-                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                  />
+                  <input value={editForm.description} onChange={(e) => setEditForm({ ...editForm, description: e.target.value })} />
                 </div>
                 <div>
                   <label>Jenis</label>
                   <select value={editForm.type} onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}>
+                    <option value="income">Pemasukan</option>
+                    <option value="expense">Pengeluaran</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Jumlah (Rp)</label>
+                  <input type="number" value={editForm.amount} onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })} />
+                </div>
+                <div>
+                  <label>Tanggal</label>
+                  <input type="date" value={editForm.date} onChange={(e) => setEditForm({ ...editForm, date: e.target.value })} />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn" onClick={() => saveEdit(t.id)}>Simpan</button>
+                <button className="btn-accent" style={{ background: '#9aa0a6' }} onClick={() => setEditingId(null)}>Batal</button>
+              </div>
+            </div>
+          ) : (
+            <div key={t.id} className={'list-card ' + (t.amount >= 0 ? 'positive' : 'negative')}>
+              <div className="list-card-main">
+                <div className="list-card-title">{t.description}</div>
+                <div className="list-card-sub">
+                  {new Date(t.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </div>
+              </div>
+              <div className="list-card-right">
+                <div className={'list-card-amount ' + (t.amount >= 0 ? 'positive' : 'negative')}>{rupiah(t.amount)}</div>
+                <div className="list-card-actions">
+                  <button className="icon-btn" onClick={() => startEdit(t)} aria-label="Edit">Edit</button>
+                  <button className="icon-btn" onClick={() => removeTransaction(t.id, t.description)} aria-label="Hapus">Hapus</button>
+                </div>
+              </div>
+            </div>
+          )
+        )
+      )}
+    </>
+  )
+}
