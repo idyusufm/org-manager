@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 
 const APP_VERSION = '1.1.0'
 
@@ -14,15 +14,20 @@ function GithubIcon() {
   )
 }
 
-function openExternal(url) {
-  // Some Android WebView-wrapper apps honor "_system" (a legacy Cordova
-  // InAppBrowser convention) to force the link out to the real system
-  // browser instead of an embedded child WebView. Falls back to a normal
-  // new-tab open for regular browsers where "_system" has no special effect.
-  window.open(url, '_system')
-}
-
 export default function About() {
+  const [copied, setCopied] = useState(false)
+
+  const copyTelegramLink = async () => {
+    const link = 'https://t.me/zwielichtstern'
+    try {
+      await navigator.clipboard.writeText(link)
+    } catch (e) {
+      // Clipboard API can be blocked in some WebViews; ignore silently.
+    }
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2500)
+  }
+
   return (
     <>
       <div className="section-row">
@@ -35,14 +40,27 @@ export default function About() {
         <div style={{ color: 'var(--text-muted)', fontSize: 13, marginTop: 4 }}>Versi {APP_VERSION}</div>
       </div>
 
-      <div className="card" style={{ display: 'flex', justifyContent: 'center', gap: 20 }}>
-        <button onClick={() => openExternal('https://t.me/zwielichtstern')} className="avatar-circle" style={{ background: '#229ED9', width: 52, height: 52, border: 'none', cursor: 'pointer' }} aria-label="Telegram">
-          <TelegramIcon />
+      <div className="card" style={{ display: 'flex', justifyContent: 'center', gap: 32 }}>
+        <button onClick={copyTelegramLink} style={{ background: 'none', border: 'none', cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+          <div className="avatar-circle" style={{ background: '#229ED9', width: 52, height: 52 }}>
+            <TelegramIcon />
+          </div>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>Telegram</span>
         </button>
-        <button onClick={() => openExternal('https://github.com/idyusufm/simaqom')} className="avatar-circle" style={{ background: '#1a1a1a', width: 52, height: 52, border: 'none', cursor: 'pointer' }} aria-label="GitHub">
-          <GithubIcon />
-        </button>
+
+        <a href="https://github.com/idyusufm/simaqom" target="_blank" rel="noopener noreferrer" style={{ textDecoration: 'none', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6 }}>
+          <div className="avatar-circle" style={{ background: '#1a1a1a', width: 52, height: 52 }}>
+            <GithubIcon />
+          </div>
+          <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>GitHub</span>
+        </a>
       </div>
+
+      {copied && (
+        <p style={{ textAlign: 'center', color: 'var(--green)', fontSize: 13 }}>
+          Link disalin! Buka browser lalu tempel untuk mengunjungi @zwielichtstern.
+        </p>
+      )}
     </>
   )
 }
