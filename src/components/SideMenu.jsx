@@ -40,36 +40,32 @@ export default function SideMenu({ open, onClose }) {
           </div>
         </button>
 
-        {isAdmin && (
-          <nav className="drawer-nav">
-            <NavLink to="/approvals" onClick={onClose} className={({ isActive }) => (isActive ? 'active' : '')}>
-              Persetujuan Akun
-            </NavLink>
-            <NavLink to="/logs" onClick={onClose} className={({ isActive }) => (isActive ? 'active' : '')}>
-              Log Aktivitas
-            </NavLink>
-          </nav>
-        )}
+        <nav className="drawer-nav">
+          {isAdmin && (
+            <>
+              <NavLink to="/approvals" onClick={onClose} className={({ isActive }) => (isActive ? 'active' : '')}>
+                Persetujuan Akun
+              </NavLink>
+              <NavLink to="/logs" onClick={onClose} className={({ isActive }) => (isActive ? 'active' : '')}>
+                Log Aktivitas
+              </NavLink>
+            </>
+          )}
+          <NavLink to="/about" onClick={onClose} className={({ isActive }) => (isActive ? 'active' : '')}>
+            Tentang Aplikasi
+          </NavLink>
+        </nav>
 
         <div style={{ padding: '8px 18px 0', fontSize: 12, color: 'var(--text-muted)' }}>Tema</div>
         <div className="theme-row">
-          <button
-            className={`theme-btn ${theme === 'light' ? 'active' : ''}`}
-            onClick={() => setTheme('light')}
-          >
-            ☀️ Terang
+          <button className={`theme-btn ${theme === 'light' ? 'active' : ''}`} onClick={() => setTheme('light')}>
+            Terang
           </button>
-          <button
-            className={`theme-btn ${theme === 'dark' ? 'active' : ''}`}
-            onClick={() => setTheme('dark')}
-          >
-            🌙 Gelap
+          <button className={`theme-btn ${theme === 'dark' ? 'active' : ''}`} onClick={() => setTheme('dark')}>
+            Gelap
           </button>
-          <button
-            className={`theme-btn ${theme === 'system' ? 'active' : ''}`}
-            onClick={() => setTheme('system')}
-          >
-            📱 Perangkat
+          <button className={`theme-btn ${theme === 'system' ? 'active' : ''}`} onClick={() => setTheme('system')}>
+            Perangkat
           </button>
         </div>
 
