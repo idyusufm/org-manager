@@ -1,76 +1,129 @@
-# Ledger — Cash, Agenda & Org manager
+# Si Maqom — Aplikasi Pengelola Makam
 
-A small web app for a team of up to ~20 people to track:
-- **Cash** — income/expense ledger with running balance
-- **Agenda** — upcoming and past events/meetings
-- **Organization** — member directory and shared task list
+Aplikasi web untuk pengurus makam (hingga ~20 pengguna) mengelola:
+- **Kas** — catatan pemasukan/pengeluaran dengan saldo otomatis, bisa diedit dan dihapus
+- **Agenda** — kegiatan harian dan acara, dengan kategori dan penanggung jawab (dipilih dari daftar pengurus)
+- **Pengurus** — struktur organisasi (nama, jabatan, no. HP) dan daftar tugas
+- **Profil** — nama tampilan pengguna
 
-Built with React + Vite, Firebase (Auth + Firestore) for data, and deployed
-free on GitHub Pages via GitHub Actions.
-
----
-
-## 1. Create the Firebase project
-
-1. Go to [console.firebase.google.com](https://console.firebase.google.com) → **Add project** → name it (e.g. `org-ledger`) → finish setup (Analytics optional).
-2. In the project, click the **web** icon (`</>`) to register a new web app. Name it anything. Copy the `firebaseConfig` values shown — you'll need them in step 3.
-3. In the left menu, go to **Build → Authentication → Get started**. Enable the **Email/Password** sign-in method.
-4. Go to **Build → Firestore Database → Create database**. Start in **production mode**, pick a region close to your team.
-5. Once created, go to the **Rules** tab and paste the contents of `firestore.rules` from this project, then **Publish**.
-
-### Add your ~20 users
-Still in **Authentication → Users**, click **Add user** for each person (email + a temporary password they should change on first login). There's no public sign-up page in this app on purpose — only accounts you create can log in.
+Dibangun dengan React + Vite, Firebase (Auth + Firestore) untuk data, dan di-deploy gratis di GitHub Pages lewat GitHub Actions.
 
 ---
 
-## 2. Configure the project locally
+## Cara login & persetujuan akun
+
+Tidak ada pendaftaran terbuka. Siapa pun bisa masuk dengan **Google** atau **email/kata sandi**, tapi mereka baru bisa mengakses data setelah **disetujui admin**:
+
+1. Pengguna baru masuk (Google atau email) → sistem otomatis membuat kode verifikasi 6 digit dan menampilkan layar "Menunggu Persetujuan"
+2. Admin membuka menu ☰ → **Persetujuan Akun**, melihat daftar permintaan beserta kodenya
+3. Admin bisa:
+   - Tekan **✅** untuk langsung menyetujui, atau
+   - Membagikan kode ke pengguna lewat WhatsApp/chat lain, lalu pengguna memasukkan kode itu sendiri
+4. Setelah disetujui, email masuk ke koleksi `allowedEmails` dan pengguna langsung bisa memakai aplikasi
+
+Yang bisa menjadi **admin** (bisa melihat & menyetujui permintaan) adalah akun yang punya field `admin: true` pada dokumennya di koleksi `allowedEmails`.
+
+---
+
+## 1. Membuat proyek Firebase
+
+1. Buka [console.firebase.google.com](https://console.firebase.google.com) → **Add project** → beri nama (mis. `simakam`) → selesaikan setup.
+2. Klik ikon web (`</>`) untuk mendaftarkan web app → catat nilai `firebaseConfig` yang muncul (dipakai di langkah 2).
+3. **Build → Authentication → Get started** → aktifkan dua metode sign-in:
+   - **Email/Password**
+   - **Google**
+4. **Authentication → Settings → Authorized domains** → tambahkan domain tempat app di-hosting (mis. `namamu.github.io`, dan domain kustom jika ada).
+5. **Build → Firestore Database → Create database** → mode production, pilih region terdekat.
+6. Buka tab **Rules**, ganti isinya dengan konfigurasi di bawah, lalu **Publish**.
+
+### Menjadikan akunmu sendiri sebagai admin
+Di **Firestore Database → Data**, buat koleksi `allowedEmails` (jika belum ada), lalu buat dokumen dengan:
+- **Document ID** = emailmu, huruf kecil semua (mis. `namamu@gmail.com`)
+- Tambahkan field `admin` bertipe **boolean** = `true`
+
+### Firestore Rules
+
+rules_version = '2';
+service cloud.firestore {
+match /databases/{database}/documents {
+
+function isAllowed() {
+  return request.auth != null &&
+    request.auth.token.email != null &&
+    exists(/databases/$(database)/documents/allowedEmails/$(request.auth.token.email));
+}
+
+function isAdmin() {
+  return isAllowed() &&
+    get(/databases/$(database)/documents/allowedEmails/$(request.auth.token.email)).data.admin == true;
+}
+
+match /allowedEmails/{email} {
+  allow read: if request.auth != null;
+  allow write: if isAdmin();
+  allow create: if request.auth != null &&
+    request.auth.token.email == email &&
+    exists(/databases/$(database)/documents/pendingApprovals/$(email)) &&
+    request.resource.data.code == get(/databases/$(database)/documents/pendingApprovals/$(email)).data.code;
+}
+
+match /pendingApprovals/{email} {
+  allow create: if request.auth != null && request.auth.token.email == email;
+  allow read: if isAdmin();
+  allow delete: if isAdmin();
+  allow update: if false;
+}
+
+match /transactions/{id} { allow read, write: if isAllowed(); }
+match /events/{id}       { allow read, write: if isAllowed(); }
+match /members/{id}      { allow read, write: if isAllowed(); }
+match /tasks/{id}        { allow read, write: if isAllowed(); }
+
+}
+}
+
+
+---
+
+## 2. Menjalankan di komputer lokal (opsional)
 
 ```bash
 npm install
 cp .env.example .env.local
 ```
 
-Open `.env.local` and paste in the values from your Firebase `firebaseConfig` (step 1.2):
+Isi `.env.local` dengan nilai dari `firebaseConfig`:
 
-```
 VITE_FIREBASE_API_KEY=...
 VITE_FIREBASE_AUTH_DOMAIN=...
 VITE_FIREBASE_PROJECT_ID=...
 VITE_FIREBASE_STORAGE_BUCKET=...
 VITE_FIREBASE_MESSAGING_SENDER_ID=...
 VITE_FIREBASE_APP_ID=...
-```
 
-Run it locally:
 
 ```bash
-npm run dev
+npm run dev       # server lokal
+npm run build      # build produksi ke /dist
+npm run preview    # pratinjau hasil build
 ```
-
-Visit `http://localhost:5173`, sign in with one of the users you created.
 
 ---
 
-## 3. Push to GitHub
+## 3. Push ke GitHub
 
 ```bash
 git init
 git add .
 git commit -m "Initial commit"
 git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/org-manager.git
+git remote add origin https://github.com/USERNAME/simaqom.git
 git push -u origin main
 ```
 
-> If you name your repo something other than `org-manager`, update the `base` value in `vite.config.js` to match: `/your-repo-name/`.
+## 4. Menambahkan Firebase config sebagai GitHub Secrets
 
----
-
-## 4. Add your Firebase config as GitHub Secrets
-
-The build running on GitHub Actions doesn't have your `.env.local` file (it's gitignored on purpose), so give it the same values as repo secrets:
-
-In your GitHub repo → **Settings → Secrets and variables → Actions → New repository secret**. Add each of these, using the same values from your `.env.local`:
+Repo → **Settings → Secrets and variables → Actions → New repository secret**, tambahkan enam nilai berikut (nama harus persis sama, nilai dari `firebaseConfig`):
 
 - `VITE_FIREBASE_API_KEY`
 - `VITE_FIREBASE_AUTH_DOMAIN`
@@ -79,43 +132,41 @@ In your GitHub repo → **Settings → Secrets and variables → Actions → New
 - `VITE_FIREBASE_MESSAGING_SENDER_ID`
 - `VITE_FIREBASE_APP_ID`
 
+## 5. Mengaktifkan GitHub Pages
+
+Repo → **Settings → Pages** → **Source: GitHub Actions**. Setiap push ke `main` otomatis build & deploy lewat `.github/workflows/deploy.yml`.
+
+Situs akan tersedia di:
+
+https://USERNAME.github.io/simaqom/
+
+
+### Domain kustom (opsional)
+Jika memakai subdomain gratis (mis. dari DigitalPlat FreeDomain atau is-a.dev):
+1. Arahkan DNS subdomain tersebut (CNAME) ke `USERNAME.github.io`
+2. Repo → **Settings → Pages → Custom domain** → masukkan subdomain tersebut
+3. Tambahkan file `public/CNAME` berisi subdomain itu saja, commit, agar tetap terpasang setiap kali build ulang
+4. Tambahkan subdomain itu ke **Firebase Console → Authentication → Settings → Authorized domains**, jika tidak, login Google akan gagal di domain itu
+
 ---
 
-## 5. Turn on GitHub Pages
+## Struktur data di Firestore
 
-In your repo → **Settings → Pages** → under **Build and deployment**, set **Source** to **GitHub Actions**.
-
-Push again (or re-run the workflow from the **Actions** tab) — the included workflow (`.github/workflows/deploy.yml`) builds the app and deploys it automatically on every push to `main`.
-
-Your app will be live at:
-```
-https://YOUR_USERNAME.github.io/org-manager/
-```
-
----
-
-## How data is organized in Firestore
-
-Three top-level collections, created automatically the first time each is used:
-
-| Collection | Fields |
+| Koleksi | Field |
 |---|---|
-| `transactions` | `description`, `amount` (+income / −expense), `category`, `date`, `createdBy`, `createdAt` |
-| `events` | `title`, `date`, `time`, `location`, `notes`, `createdBy`, `createdAt` |
-| `members` | `name`, `role`, `email`, `status` |
+| `transactions` | `description`, `amount` (+pemasukan / −pengeluaran), `date`, `createdBy`, `createdAt` |
+| `events` | `title`, `category` (Harian/Acara/Lainnya), `pj`, `date`, `createdBy`, `createdAt` |
+| `members` | `name`, `role`, `phone` |
 | `tasks` | `title`, `owner`, `done`, `createdAt` |
+| `allowedEmails` | dokumen per email yang disetujui; field `admin` (boolean, opsional), `code`, `name`, `approvedAt` |
+| `pendingApprovals` | dokumen per email yang menunggu; field `code`, `name`, `createdAt` — dihapus otomatis setelah disetujui/ditolak |
 
-You can browse/edit this data directly anytime in **Firebase Console → Firestore Database**.
+Semua koleksi ini otomatis terbentuk saat pertama kali dipakai — tidak perlu dibuat manual, kecuali `allowedEmails` untuk akun admin pertamamu.
 
-## Notes on access for ~20 users
+---
 
-- Every signed-in user currently has full read/write access to all data (simplest setup for a small trusted team). If you later want role-based permissions (e.g. only a treasurer can edit Cash), that's a change to `firestore.rules` plus a `role` check.
-- The free tiers of Firebase (Spark plan) and GitHub Pages comfortably cover a team this size.
+## Catatan keamanan
 
-## Local development commands
-
-```bash
-npm run dev       # local dev server
-npm run build      # production build to /dist
-npm run preview    # preview the production build locally
-```
+- Setiap akun yang disetujui (ada di `allowedEmails`) punya akses penuh baca/tulis ke semua data Kas, Agenda, dan Pengurus. Ini cukup untuk tim kecil yang saling percaya.
+- Hanya akun dengan `admin: true` yang bisa melihat kode verifikasi dan menyetujui/menolak permintaan baru.
+- Jika ingin membatasi akses lebih detail (mis. hanya bendahara yang bisa mengubah Kas), perlu penyesuaian lebih lanjut di `firestore.rules`.

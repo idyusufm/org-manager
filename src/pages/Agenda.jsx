@@ -5,22 +5,46 @@ import {
   onSnapshot,
   orderBy,
   query,
+  doc,
+  updateDoc,
+  deleteDoc,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../AuthContext'
+import { logActivity } from '../logActivity'
+
+const CATEGORY_COLORS = {
+  Harian: 'blue',
+  Acara: 'orange',
+  Lainnya: 'gray',
+}
+
+const emptyForm = { title: '', category: 'Harian', pj: '', date: '' }
 
 export default function Agenda() {
   const { user } = useAuth()
   const [events, setEvents] = useState([])
+  const [members, setMembers] = useState([])
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ title: '', date: '', time: '', location: '', notes: '' })
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState(emptyForm)
+  const [editingId, setEditingId] = useState(null)
+  const [editForm, setEditForm] = useState(emptyForm)
 
   useEffect(() => {
-    const q = query(collection(db, 'events'), orderBy('date', 'asc'))
+    const q = query(collection(db, 'events'), orderBy('date', 'desc'))
     const unsub = onSnapshot(q, (snap) => {
       setEvents(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
       setLoading(false)
+    })
+    return unsub
+  }, [])
+
+  useEffect(() => {
+    const mq = query(collection(db, 'members'), orderBy('name', 'asc'))
+    const unsub = onSnapshot(mq, (snap) => {
+      setMembers(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     })
     return unsub
   }, [])
@@ -33,116 +57,154 @@ export default function Agenda() {
       createdBy: user?.email || 'unknown',
       createdAt: serverTimestamp(),
     })
-    setForm({ title: '', date: '', time: '', location: '', notes: '' })
+    await logActivity(user, 'add', `Menambah agenda "${form.title}"`)
+    setForm(emptyForm)
+    setShowForm(false)
   }
 
-  const today = new Date().toISOString().slice(0, 10)
-  const upcoming = events.filter((e) => e.date >= today)
-  const past = events.filter((e) => e.date < today)
+  const startEdit = (ev) => {
+    setEditingId(ev.id)
+    setEditForm({ title: ev.title, category: ev.category || 'Harian', pj: ev.pj || '', date: ev.date })
+  }
+
+  const saveEdit = async (id) => {
+    await updateDoc(doc(db, 'events', id), { ...editForm })
+    await logActivity(user, 'edit', `Mengubah agenda "${editForm.title}"`)
+    setEditingId(null)
+  }
+
+  const removeEvent = async (id, title) => {
+    if (!window.confirm('Hapus agenda ini?')) return
+    await deleteDoc(doc(db, 'events', id))
+    await logActivity(user, 'delete', `Menghapus agenda "${title}"`)
+  }
+
+  const PjSelect = ({ value, onChange }) => (
+    <select value={value} onChange={onChange}>
+      <option value="">Pilih pengurus…</option>
+      {members.map((m) => (
+        <option key={m.id} value={m.name}>{m.name}</option>
+      ))}
+      {value && !members.some((m) => m.name === value) && (
+        <option value={value}>{value} (tidak terdaftar)</option>
+      )}
+    </select>
+  )
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h1>Agenda</h1>
-          <p>Meetings, deadlines and events.</p>
-        </div>
+      <div className="section-row">
+        <h2>Agenda &amp; Kegiatan</h2>
+        <button className="btn-accent" onClick={() => setShowForm((s) => !s)}>
+          {showForm ? 'Tutup' : '+ Tambah'}
+        </button>
       </div>
 
-      <div className="card">
-        <h3 style={{ marginBottom: 14, fontSize: 16 }}>Add event</h3>
-        <form onSubmit={handleSubmit}>
-          <div className="form-grid">
-            <div>
-              <label>Title</label>
-              <input
-                value={form.title}
-                onChange={(e) => setForm({ ...form, title: e.target.value })}
-                placeholder="e.g. Board meeting"
-              />
-            </div>
-            <div>
-              <label>Date</label>
-              <input
-                type="date"
-                value={form.date}
-                onChange={(e) => setForm({ ...form, date: e.target.value })}
-              />
-            </div>
-            <div>
-              <label>Time</label>
-              <input
-                type="time"
-                value={form.time}
-                onChange={(e) => setForm({ ...form, time: e.target.value })}
-              />
-            </div>
-            <div>
-              <label>Location</label>
-              <input
-                value={form.location}
-                onChange={(e) => setForm({ ...form, location: e.target.value })}
-                placeholder="e.g. Room 2 / Zoom"
-              />
-            </div>
-          </div>
-          <div style={{ marginBottom: 14 }}>
-            <label>Notes</label>
-            <textarea
-              rows={2}
-              value={form.notes}
-              onChange={(e) => setForm({ ...form, notes: e.target.value })}
-              placeholder="Agenda items, links, context"
-            />
-          </div>
-          <button className="btn" type="submit">Add event</button>
-        </form>
-      </div>
-
-      <div className="card">
-        <h3 style={{ marginBottom: 14, fontSize: 16 }}>Upcoming</h3>
-        {loading ? (
-          <p className="empty-state">Loading…</p>
-        ) : upcoming.length === 0 ? (
-          <p className="empty-state">Nothing scheduled. Add an event above.</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Title</th>
-                <th>Location</th>
-              </tr>
-            </thead>
-            <tbody>
-              {upcoming.map((ev) => (
-                <tr key={ev.id}>
-                  <td>{ev.date}</td>
-                  <td>{ev.time || '—'}</td>
-                  <td>{ev.title}</td>
-                  <td>{ev.location || '—'}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
-
-      {past.length > 0 && (
+      {showForm && (
         <div className="card">
-          <h3 style={{ marginBottom: 14, fontSize: 16, color: 'var(--text-muted)' }}>Past</h3>
-          <table>
-            <tbody>
-              {past.slice(0, 8).map((ev) => (
-                <tr key={ev.id}>
-                  <td style={{ color: 'var(--text-muted)' }}>{ev.date}</td>
-                  <td style={{ color: 'var(--text-muted)' }}>{ev.title}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          {members.length === 0 && (
+            <p style={{ fontSize: 13, color: 'var(--text-muted)', marginBottom: 10 }}>
+              Belum ada pengurus terdaftar. Tambahkan dulu di halaman Pengurus agar bisa dipilih di sini.
+            </p>
+          )}
+          <form onSubmit={handleSubmit}>
+            <div className="form-grid">
+              <div>
+                <label>Judul</label>
+                <input
+                  value={form.title}
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  placeholder="cth. Babat Rumput Blok Timur"
+                />
+              </div>
+              <div>
+                <label>Kategori</label>
+                <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
+                  <option value="Harian">Harian</option>
+                  <option value="Acara">Acara</option>
+                  <option value="Lainnya">Lainnya</option>
+                </select>
+              </div>
+              <div>
+                <label>Penanggung Jawab</label>
+                <PjSelect value={form.pj} onChange={(e) => setForm({ ...form, pj: e.target.value })} />
+              </div>
+              <div>
+                <label>Tanggal</label>
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => setForm({ ...form, date: e.target.value })}
+                />
+              </div>
+            </div>
+            <button className="btn" type="submit">Simpan Agenda</button>
+          </form>
         </div>
+      )}
+
+      {loading ? (
+        <p className="empty-state">Memuat…</p>
+      ) : events.length === 0 ? (
+        <p className="empty-state">Belum ada agenda. Tambahkan yang pertama.</p>
+      ) : (
+        events.map((ev) =>
+          editingId === ev.id ? (
+            <div key={ev.id} className="card">
+              <div className="form-grid">
+                <div>
+                  <label>Judul</label>
+                  <input
+                    value={editForm.title}
+                    onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label>Kategori</label>
+                  <select value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}>
+                    <option value="Harian">Harian</option>
+                    <option value="Acara">Acara</option>
+                    <option value="Lainnya">Lainnya</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Penanggung Jawab</label>
+                  <PjSelect value={editForm.pj} onChange={(e) => setEditForm({ ...editForm, pj: e.target.value })} />
+                </div>
+                <div>
+                  <label>Tanggal</label>
+                  <input
+                    type="date"
+                    value={editForm.date}
+                    onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn" onClick={() => saveEdit(ev.id)}>Simpan</button>
+                <button className="btn-accent" style={{ background: '#9aa0a6' }} onClick={() => setEditingId(null)}>
+                  Batal
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div key={ev.id} className="list-card" style={{ alignItems: 'flex-start' }}>
+              <div className="list-card-main" style={{ flex: 1 }}>
+                <div className={`tag-label ${CATEGORY_COLORS[ev.category] || 'gray'}`}>
+                  {(ev.category || 'Lainnya').toUpperCase()}
+                </div>
+                <div className="list-card-title">{ev.title}</div>
+                <div className="list-card-sub">
+                  PJ: {ev.pj || '—'} · {new Date(ev.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </div>
+              </div>
+              <div className="list-card-actions">
+                <button className="icon-btn" onClick={() => startEdit(ev)} aria-label="Edit">✏️</button>
+                <button className="icon-btn" onClick={() => removeEvent(ev.id, ev.title)} aria-label="Hapus">🗑️</button>
+              </div>
+            </div>
+          )
+        )
       )}
     </>
   )

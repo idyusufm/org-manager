@@ -1,0 +1,84 @@
+import React from 'react'
+import { NavLink, useNavigate } from 'react-router-dom'
+import { useAuth } from '../AuthContext'
+import { useTheme } from '../ThemeContext'
+
+function PersonIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+      <circle cx="12" cy="8" r="4" fill="currentColor" />
+      <path d="M4 20c0-4.4 3.6-7 8-7s8 2.6 8 7" fill="currentColor" />
+    </svg>
+  )
+}
+
+export default function SideMenu({ open, onClose }) {
+  const { user, logout, isAdmin } = useAuth()
+  const { theme, setTheme } = useTheme()
+  const navigate = useNavigate()
+
+  if (!open) return null
+
+  const goToProfile = () => {
+    onClose()
+    navigate('/profile')
+  }
+
+  return (
+    <>
+      <div className="drawer-backdrop" onClick={onClose} />
+      <div className="drawer-panel">
+        <button className="drawer-header" onClick={goToProfile} style={{ width: '100%', border: 'none', background: 'none', cursor: 'pointer', textAlign: 'left' }}>
+          <div className="avatar-circle">
+            <PersonIcon />
+          </div>
+          <div>
+            {user?.displayName && (
+              <div style={{ fontWeight: 700, fontSize: 15 }}>{user.displayName}</div>
+            )}
+            <div className="drawer-email">{user?.email}</div>
+          </div>
+        </button>
+
+        {isAdmin && (
+          <nav className="drawer-nav">
+            <NavLink to="/approvals" onClick={onClose} className={({ isActive }) => (isActive ? 'active' : '')}>
+              Persetujuan Akun
+            </NavLink>
+            <NavLink to="/logs" onClick={onClose} className={({ isActive }) => (isActive ? 'active' : '')}>
+              Log Aktivitas
+            </NavLink>
+          </nav>
+        )}
+
+        <div style={{ padding: '8px 18px 0', fontSize: 12, color: 'var(--text-muted)' }}>Tema</div>
+        <div className="theme-row">
+          <button
+            className={`theme-btn ${theme === 'light' ? 'active' : ''}`}
+            onClick={() => setTheme('light')}
+          >
+            ☀️ Terang
+          </button>
+          <button
+            className={`theme-btn ${theme === 'dark' ? 'active' : ''}`}
+            onClick={() => setTheme('dark')}
+          >
+            🌙 Gelap
+          </button>
+          <button
+            className={`theme-btn ${theme === 'system' ? 'active' : ''}`}
+            onClick={() => setTheme('system')}
+          >
+            📱 Perangkat
+          </button>
+        </div>
+
+        <div className="drawer-footer" style={{ marginTop: 'auto' }}>
+          <button className="btn" style={{ background: 'var(--red)' }} onClick={logout}>
+            Keluar
+          </button>
+        </div>
+      </div>
+    </>
+  )
+}

@@ -6,5 +6,5 @@ import react from '@vitejs/plugin-react'
 // If you deploy to a custom domain or a *.github.io user/org page, set base to '/'.
 export default defineConfig({
   plugins: [react()],
-  base: '/org-manager/',
+  base: '/simaqom/',
 })

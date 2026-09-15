@@ -5,19 +5,84 @@ import {
   onSnapshot,
   orderBy,
   query,
+  doc,
+  updateDoc,
+  deleteDoc,
   serverTimestamp,
 } from 'firebase/firestore'
 import { db } from '../firebase'
 import { useAuth } from '../AuthContext'
+import { logActivity } from '../logActivity'
 
-const currency = (n) =>
-  n.toLocaleString(undefined, { style: 'currency', currency: 'USD' })
+const rupiah = (n) => {
+  const sign = n < 0 ? '-' : '+'
+  return `${sign} Rp ${Math.abs(n).toLocaleString('id-ID')}`
+}
+
+const emptyForm = { description: '', amount: '', type: 'income', date: '' }
+
+const PERIODS = {
+  week: 'Minggu Ini (7 hari)',
+  month: 'Bulan Ini',
+  year: 'Tahun Ini',
+  all: 'Semua Data',
+}
+
+function filterByPeriod(transactions, period) {
+  if (period === 'all') return transactions
+  const now = new Date()
+  return transactions.filter((t) => {
+    const d = new Date(t.date)
+    if (period === 'week') {
+      const weekAgo = new Date()
+      weekAgo.setDate(now.getDate() - 7)
+      return d >= weekAgo && d <= now
+    }
+    if (period === 'month') {
+      return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth()
+    }
+    if (period === 'year') {
+      return d.getFullYear() === now.getFullYear()
+    }
+    return true
+  })
+}
+
+function downloadCsv(transactions, period) {
+  const header = ['Tanggal', 'Deskripsi', 'Jenis', 'Jumlah (Rp)']
+  const rows = transactions.map((t) => [
+    t.date,
+    `"${(t.description || '').replace(/"/g, '""')}"`,
+    t.amount >= 0 ? 'Pemasukan' : 'Pengeluaran',
+    Math.abs(t.amount),
+  ])
+  const balance = transactions.reduce((sum, t) => sum + t.amount, 0)
+  rows.push([])
+  rows.push(['', '', 'Saldo Akhir', balance])
+
+  const csv = [header, ...rows].map((r) => r.join(',')).join('\n')
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  const today = new Date().toISOString().slice(0, 10)
+  a.href = url
+  a.download = `kas-simaqom-${period}-${today}.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}
 
 export default function Cash() {
   const { user } = useAuth()
   const [transactions, setTransactions] = useState([])
   const [loading, setLoading] = useState(true)
-  const [form, setForm] = useState({ description: '', amount: '', type: 'income', category: '', date: '' })
+  const [showForm, setShowForm] = useState(false)
+  const [form, setForm] = useState(emptyForm)
+  const [editingId, setEditingId] = useState(null)
+  const [editForm, setEditForm] = useState(emptyForm)
+  const [showExport, setShowExport] = useState(false)
+  const [exportPeriod, setExportPeriod] = useState('month')
 
   useEffect(() => {
     const q = query(collection(db, 'transactions'), orderBy('date', 'desc'))
@@ -36,125 +101,202 @@ export default function Cash() {
     await addDoc(collection(db, 'transactions'), {
       description: form.description,
       amount: signedAmount,
-      category: form.category || 'General',
       date: form.date,
       createdBy: user?.email || 'unknown',
       createdAt: serverTimestamp(),
     })
-    setForm({ description: '', amount: '', type: 'income', category: '', date: '' })
+    await logActivity(user, 'add', `Menambah transaksi "${form.description}" (${rupiah(signedAmount)})`)
+    setForm(emptyForm)
+    setShowForm(false)
+  }
+
+  const startEdit = (t) => {
+    setEditingId(t.id)
+    setEditForm({
+      description: t.description,
+      amount: String(Math.abs(t.amount)),
+      type: t.amount < 0 ? 'expense' : 'income',
+      date: t.date,
+    })
+  }
+
+  const saveEdit = async (id) => {
+    const signedAmount =
+      editForm.type === 'expense' ? -Math.abs(Number(editForm.amount)) : Math.abs(Number(editForm.amount))
+    await updateDoc(doc(db, 'transactions', id), {
+      description: editForm.description,
+      amount: signedAmount,
+      date: editForm.date,
+    })
+    await logActivity(user, 'edit', `Mengubah transaksi "${editForm.description}"`)
+    setEditingId(null)
+  }
+
+  const removeTransaction = async (id, description) => {
+    if (!window.confirm('Hapus transaksi ini? Saldo akan dihitung ulang otomatis.')) return
+    await deleteDoc(doc(db, 'transactions', id))
+    await logActivity(user, 'delete', `Menghapus transaksi "${description}"`)
+  }
+
+  const handleExport = async () => {
+    const filtered = filterByPeriod(transactions, exportPeriod)
+    if (filtered.length === 0) {
+      alert('Tidak ada transaksi pada periode ini.')
+      return
+    }
+    downloadCsv(filtered, exportPeriod)
+    await logActivity(user, 'export', `Mengekspor data Kas (${PERIODS[exportPeriod]}, ${filtered.length} transaksi)`)
+    setShowExport(false)
   }
 
   const balance = transactions.reduce((sum, t) => sum + t.amount, 0)
-  const income = transactions.filter((t) => t.amount > 0).reduce((s, t) => s + t.amount, 0)
-  const expense = transactions.filter((t) => t.amount < 0).reduce((s, t) => s + t.amount, 0)
 
   return (
     <>
-      <div className="page-header">
-        <div>
-          <h1>Cash</h1>
-          <p>Income, expenses and running balance.</p>
+      <div className="stat-card">
+        <div className="label">Total Saldo Makam</div>
+        <div className={`value ${balance >= 0 ? 'positive' : 'negative'}`}>
+          Rp {Math.abs(balance).toLocaleString('id-ID')}
         </div>
       </div>
 
-      <div className="stat-row">
-        <div className="stat">
-          <div className="label">Balance</div>
-          <div className={`value ${balance >= 0 ? 'positive' : 'negative'}`}>{currency(balance)}</div>
-        </div>
-        <div className="stat">
-          <div className="label">Income</div>
-          <div className="value positive">{currency(income)}</div>
-        </div>
-        <div className="stat">
-          <div className="label">Expense</div>
-          <div className="value negative">{currency(expense)}</div>
+      <div className="section-row">
+        <h2>Riwayat Transaksi</h2>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="btn-accent" style={{ background: 'var(--green)' }} onClick={() => setShowExport((s) => !s)}>
+            {showExport ? 'Tutup' : '⬇ Ekspor'}
+          </button>
+          <button className="btn-accent" onClick={() => setShowForm((s) => !s)}>
+            {showForm ? 'Tutup' : '+ Tambah'}
+          </button>
         </div>
       </div>
 
-      <div className="card">
-        <h3 style={{ marginBottom: 14, fontSize: 16 }}>Add transaction</h3>
-        <form onSubmit={handleSubmit}>
-          <div className="form-grid">
-            <div>
-              <label>Description</label>
-              <input
-                value={form.description}
-                onChange={(e) => setForm({ ...form, description: e.target.value })}
-                placeholder="e.g. Member dues — March"
-              />
-            </div>
-            <div>
-              <label>Type</label>
-              <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
-                <option value="income">Income</option>
-                <option value="expense">Expense</option>
-              </select>
-            </div>
-            <div>
-              <label>Amount</label>
-              <input
-                type="number"
-                step="0.01"
-                value={form.amount}
-                onChange={(e) => setForm({ ...form, amount: e.target.value })}
-                placeholder="0.00"
-              />
-            </div>
-            <div>
-              <label>Category</label>
-              <input
-                value={form.category}
-                onChange={(e) => setForm({ ...form, category: e.target.value })}
-                placeholder="e.g. Dues, Supplies"
-              />
-            </div>
-            <div>
-              <label>Date</label>
-              <input
-                type="date"
-                value={form.date}
-                onChange={(e) => setForm({ ...form, date: e.target.value })}
-              />
-            </div>
-          </div>
-          <button className="btn" type="submit">Add entry</button>
-        </form>
-      </div>
+      {showExport && (
+        <div className="card">
+          <label>Pilih Periode</label>
+          <select value={exportPeriod} onChange={(e) => setExportPeriod(e.target.value)} style={{ marginBottom: 14 }}>
+            {Object.entries(PERIODS).map(([key, label]) => (
+              <option key={key} value={key}>{label}</option>
+            ))}
+          </select>
+          <button className="btn" onClick={handleExport}>Unduh CSV</button>
+          <p style={{ fontSize: 12, color: 'var(--text-muted)', marginTop: 10 }}>
+            File CSV bisa dibuka langsung di Google Sheets: buka sheets.google.com → File → Import → Upload, lalu pilih file yang terunduh.
+          </p>
+        </div>
+      )}
 
-      <div className="card">
-        <h3 style={{ marginBottom: 14, fontSize: 16 }}>Ledger</h3>
-        {loading ? (
-          <p className="empty-state">Loading…</p>
-        ) : transactions.length === 0 ? (
-          <p className="empty-state">No transactions yet. Add the first one above.</p>
-        ) : (
-          <table>
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Description</th>
-                <th>Category</th>
-                <th>Added by</th>
-                <th style={{ textAlign: 'right' }}>Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              {transactions.map((t) => (
-                <tr key={t.id}>
-                  <td>{t.date}</td>
-                  <td>{t.description}</td>
-                  <td><span className="tag">{t.category}</span></td>
-                  <td style={{ color: 'var(--text-muted)', fontSize: 13 }}>{t.createdBy}</td>
-                  <td className={`amount ${t.amount >= 0 ? 'positive' : 'negative'}`}>
-                    {currency(t.amount)}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {showForm && (
+        <div className="card">
+          <form onSubmit={handleSubmit}>
+            <div className="form-grid">
+              <div>
+                <label>Deskripsi</label>
+                <input
+                  value={form.description}
+                  onChange={(e) => setForm({ ...form, description: e.target.value })}
+                  placeholder="cth. Iuran warga"
+                />
+              </div>
+              <div>
+                <label>Jenis</label>
+                <select value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+                  <option value="income">Pemasukan</option>
+                  <option value="expense">Pengeluaran</option>
+                </select>
+              </div>
+              <div>
+                <label>Jumlah (Rp)</label>
+                <input
+                  type="number"
+                  value={form.amount}
+                  onChange={(e) => setForm({ ...form, amount: e.target.value })}
+                  placeholder="0"
+                />
+              </div>
+              <div>
+                <label>Tanggal</label>
+                <input
+                  type="date"
+                  value={form.date}
+                  onChange={(e) => setForm({ ...form, date: e.target.value })}
+                />
+              </div>
+            </div>
+            <button className="btn" type="submit">Simpan Transaksi</button>
+          </form>
+        </div>
+      )}
+
+      {loading ? (
+        <p className="empty-state">Memuat…</p>
+      ) : transactions.length === 0 ? (
+        <p className="empty-state">Belum ada transaksi. Tambahkan yang pertama.</p>
+      ) : (
+        transactions.map((t) =>
+          editingId === t.id ? (
+            <div key={t.id} className="card">
+              <div className="form-grid">
+                <div>
+                  <label>Deskripsi</label>
+                  <input
+                    value={editForm.description}
+                    onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label>Jenis</label>
+                  <select value={editForm.type} onChange={(e) => setEditForm({ ...editForm, type: e.target.value })}>
+                    <option value="income">Pemasukan</option>
+                    <option value="expense">Pengeluaran</option>
+                  </select>
+                </div>
+                <div>
+                  <label>Jumlah (Rp)</label>
+                  <input
+                    type="number"
+                    value={editForm.amount}
+                    onChange={(e) => setEditForm({ ...editForm, amount: e.target.value })}
+                  />
+                </div>
+                <div>
+                  <label>Tanggal</label>
+                  <input
+                    type="date"
+                    value={editForm.date}
+                    onChange={(e) => setEditForm({ ...editForm, date: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div style={{ display: 'flex', gap: 8 }}>
+                <button className="btn" onClick={() => saveEdit(t.id)}>Simpan</button>
+                <button className="btn-accent" style={{ background: '#9aa0a6' }} onClick={() => setEditingId(null)}>
+                  Batal
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div key={t.id} className={`list-card ${t.amount >= 0 ? 'positive' : 'negative'}`}>
+              <div className="list-card-main">
+                <div className="list-card-title">{t.description}</div>
+                <div className="list-card-sub">
+                  {new Date(t.date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </div>
+              </div>
+              <div className="list-card-right">
+                <div className={`list-card-amount ${t.amount >= 0 ? 'positive' : 'negative'}`}>
+                  {rupiah(t.amount)}
+                </div>
+                <div className="list-card-actions">
+                  <button className="icon-btn" onClick={() => startEdit(t)} aria-label="Edit">✏️</button>
+                  <button className="icon-btn" onClick={() => removeTransaction(t.id, t.description)} aria-label="Hapus">🗑️</button>
+                </div>
+              </div>
+            </div>
+          )
+        )
+      )}
     </>
   )
 }

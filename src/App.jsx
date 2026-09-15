@@ -3,29 +3,48 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider, useAuth } from './AuthContext'
 import Layout from './components/Layout'
 import Login from './pages/Login'
+import Verify from './pages/Verify'
 import Cash from './pages/Cash'
 import Agenda from './pages/Agenda'
 import Org from './pages/Org'
+import Profile from './pages/Profile'
+import Approvals from './pages/Approvals'
+import Logs from './pages/Logs'
 
-function Protected({ children }) {
-  const { user, loading } = useAuth()
-  if (loading) return <div style={{ padding: 40 }}>Loading…</div>
-  if (!user) return <Navigate to="/login" replace />
+function Gate({ children, skipNameCheck }) {
+  const { loading, firebaseUser, approved, user } = useAuth()
+  if (loading) return <div style={{ padding: 40 }}>Memuat…</div>
+  if (!firebaseUser) return <Navigate to="/login" replace />
+  if (!approved) return <Navigate to="/verify" replace />
+  if (!skipNameCheck && !user?.displayName) return <Navigate to="/profile" replace />
   return <Layout>{children}</Layout>
 }
 
+function AdminGate({ children }) {
+  const { isAdmin } = useAuth()
+  if (!isAdmin) return <Navigate to="/cash" replace />
+  return children
+}
+
 function AppRoutes() {
-  const { user, loading } = useAuth()
+  const { loading, firebaseUser, approved } = useAuth()
 
   return (
     <Routes>
       <Route
         path="/login"
-        element={!loading && user ? <Navigate to="/cash" replace /> : <Login />}
+        element={!loading && firebaseUser ? <Navigate to={approved ? '/cash' : '/verify'} replace /> : <Login />}
       />
-      <Route path="/cash" element={<Protected><Cash /></Protected>} />
-      <Route path="/agenda" element={<Protected><Agenda /></Protected>} />
-      <Route path="/org" element={<Protected><Org /></Protected>} />
+      <Route
+        path="/verify"
+        element={!loading && firebaseUser && !approved ? <Verify /> : <Navigate to={firebaseUser ? '/cash' : '/login'} replace />}
+      />
+      <Route path="/cash" element={<Gate><Cash /></Gate>} />
+      <Route path="/agenda" element={<Gate><Agenda /></Gate>} />
+      <Route path="/org" element={<Gate><Org /></Gate>} />
+      <Route path="/profile" element={<Gate skipNameCheck><Profile /></Gate>} />
+      <Route path="/approvals" element={<Gate><AdminGate><Approvals /></AdminGate></Gate>} />
+      <Route path="/logs" element={<Gate><AdminGate><Logs /></AdminGate></Gate>} />
       <Route path="*" element={<Navigate to="/cash" replace />} />
     </Routes>
   )
